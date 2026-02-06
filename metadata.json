@@ -1,0 +1,5 @@
+{
+  "name": "MestrAi - Virtual Tabletop",
+  "description": "A SaaS Virtual Tabletop platform where AI acts as the Dungeon Master, featuring BYOK architecture, immersive storytelling, and dynamic rule systems.",
+  "requestFramePermissions": []
+}
