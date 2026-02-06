@@ -1,8 +1,0 @@
-{
-  "/campaigns/[id]/join/page": "app/campaigns/[id]/join/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/campaigns/[id]/admin/page": "app/campaigns/[id]/admin/page.js",
-  "/setup-key/page": "app/setup-key/page.js",
-  "/campaigns/[id]/page": "app/campaigns/[id]/page.js",
-  "/api/chat/route": "app/api/chat/route.js"
-}

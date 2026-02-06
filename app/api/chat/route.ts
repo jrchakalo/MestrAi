@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
+import type { ChatCompletionMessageParam, ChatCompletionTool } from 'groq-sdk/resources/chat/completions';
 import { z } from 'zod';
 import { pickApiKey } from '../../../lib/ai/keyPool';
 import { buildSystemPrompt } from '../../../lib/ai/systemPrompt';
@@ -182,16 +183,18 @@ export async function POST(req: Request) {
 
     const system = buildSystemPrompt(campaign);
 
-    const history = messages
-      .filter((m) => m.role !== Role.SYSTEM)
-      .map((m) => ({
-        role: m.role === Role.USER ? 'user' : 'assistant',
-        content: m.content || '',
-      }));
+    const toChatMessage = (role: 'user' | 'assistant', content: string): ChatCompletionMessageParam => ({
+      role,
+      content,
+    });
 
-    const tools = [
+    const history: ChatCompletionMessageParam[] = messages
+      .filter((m) => m.role !== Role.SYSTEM)
+      .map((m) => toChatMessage(m.role === Role.USER ? 'user' : 'assistant', m.content || ''));
+
+    const tools: ChatCompletionTool[] = [
       {
-        type: 'function',
+        type: 'function' as const,
         function: {
           name: 'request_roll',
           description: 'Request a dice roll from the player.',
@@ -199,7 +202,7 @@ export async function POST(req: Request) {
         },
       },
       {
-        type: 'function',
+        type: 'function' as const,
         function: {
           name: 'generate_image',
           description: 'Generate an image prompt for the story.',
@@ -207,7 +210,7 @@ export async function POST(req: Request) {
         },
       },
       {
-        type: 'function',
+        type: 'function' as const,
         function: {
           name: 'trigger_game_over',
           description: 'Trigger a game over when the player dies.',
@@ -215,7 +218,7 @@ export async function POST(req: Request) {
         },
       },
       {
-        type: 'function',
+        type: 'function' as const,
         function: {
           name: 'update_character',
           description: 'Update character fields like profession, hp, or inventory when the story changes.',
@@ -224,9 +227,12 @@ export async function POST(req: Request) {
       },
     ];
 
-    const baseMessages = [{ role: 'system', content: system }, ...history];
+    const baseMessages: ChatCompletionMessageParam[] = [
+      { role: 'system', content: system },
+      ...history,
+    ];
 
-    const buildMessages = () => {
+    const buildMessages = (): ChatCompletionMessageParam[] => {
       if (toolResponse) {
         const toolCallId = toolResponse.callId || `call_${toolResponse.name}`;
         const toolArgs = toolResponse.args || {};
@@ -245,12 +251,12 @@ export async function POST(req: Request) {
                 },
               },
             ],
-          },
+          } as ChatCompletionMessageParam,
           {
             role: 'tool',
             tool_call_id: toolCallId,
             content: JSON.stringify(toolResponse.result ?? ''),
-          },
+          } as ChatCompletionMessageParam,
         ];
       }
 
