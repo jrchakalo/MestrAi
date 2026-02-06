@@ -63,11 +63,6 @@ Referência: https://console.groq.com/docs/rate-limits
 - npm run build
 - npm run start
 
-## Deploy (Vercel + Supabase)
-1. Configure as variáveis de ambiente na Vercel.
-2. Aplique o schema do Supabase (RLS, RPCs, índices).
-3. Faça deploy na Vercel.
-
 ## Licença
 Este projeto está sob a licença MIT. Veja a [LICENSE](LICENSE).
 
