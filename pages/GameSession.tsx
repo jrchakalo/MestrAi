@@ -94,6 +94,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const startingRoundRef = useRef(false);
   const pendingMessagesRef = useRef<Message[] | null>(null);
   const initSentRef = useRef(false);
   const prevStatusRef = useRef<CampaignStatus | null>(null);
@@ -212,6 +213,11 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         .eq('campaign_id', campaign.id)
         .order('created_at', { ascending: true });
 
+      if (error) {
+        setToast({ msg: 'Falha ao carregar o chat. Tente novamente.', type: 'error' });
+        return;
+      }
+
       const initialHistory: Message[] = !error && data
         ? data.map((row: any) => {
             const role = row.role === 'assistant' ? Role.MODEL : row.role;
@@ -250,6 +256,21 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     initChat();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign.id, apiKey]);
+
+  useEffect(() => {
+    if (campaignStatus !== CampaignStatus.ACTIVE) return;
+    if (turnState.active) return;
+    if (campaign.ownerId !== userId) return;
+    if (acceptedCount === 0) return;
+    if (startingRoundRef.current) return;
+
+    startingRoundRef.current = true;
+    startTurnRound(true)
+      .catch(() => null)
+      .finally(() => {
+        startingRoundRef.current = false;
+      });
+  }, [campaignStatus, turnState.active, campaign.ownerId, userId, acceptedCount]);
 
   useEffect(() => {
     const loadCounts = async () => {
@@ -974,6 +995,11 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       if (trimmed.startsWith('[PERSONAGEM:')) return trimmed;
       return `[PERSONAGEM: ${campaign.characterName}] ${raw}`;
     };
+    if (!isSystemInit && campaignStatus === CampaignStatus.ACTIVE && !turnState.active) {
+      setToast({ msg: 'Aguardando o mestre iniciar a rodada.', type: 'error' });
+      return;
+    }
+
     if (!isSystemInit && turnState.active) {
       if (!userId || userId !== currentPlayerId) {
         setToast({ msg: 'Aguarde sua vez de jogar.', type: 'error' });
