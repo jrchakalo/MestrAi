@@ -30,6 +30,20 @@ const applyDamageSchema = {
   required: ['type'],
 };
 
+const applyRestSchema = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: ['SHORT', 'LONG'] },
+  },
+  required: ['type'],
+};
+
+const triggerLevelUpSchema = {
+  type: 'object',
+  properties: {},
+  required: [],
+};
+
 const generateImageSchema = {
   type: 'object',
   properties: {
@@ -244,6 +258,22 @@ export async function POST(req: Request) {
           name: 'apply_damage',
           description: 'Apply light or heavy damage to the character.',
           parameters: applyDamageSchema as any,
+        },
+      },
+      {
+        type: 'function' as const,
+        function: {
+          name: 'apply_rest',
+          description: 'Apply short or long rest recovery to the character.',
+          parameters: applyRestSchema as any,
+        },
+      },
+      {
+        type: 'function' as const,
+        function: {
+          name: 'trigger_levelup',
+          description: 'Trigger a rare level up event.',
+          parameters: triggerLevelUpSchema as any,
         },
       },
       {

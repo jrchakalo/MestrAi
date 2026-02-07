@@ -7,7 +7,7 @@ import { DiceRoller } from '../components/DiceRoller';
 import { Input } from '../components/ui/Input';
 import { supabase } from '../lib/supabaseClient';
 import { Toast } from '../components/ui/Toast';
-import { calculateRoll, applyDamage } from '../lib/gameRules';
+import { calculateRoll, applyDamage, applyRest } from '../lib/gameRules';
 
 interface GameSessionProps {
   campaign: Campaign;
@@ -929,6 +929,34 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           await handleDeath('O corpo nao aguentou os ferimentos.', 'A historia segue sem o heroi, deixando ecos do que poderia ter sido.');
           return;
         }
+        return;
+      }
+
+      if (call.name === 'apply_rest') {
+        const args = call.args as { type?: 'SHORT' | 'LONG' };
+        if (!characterData) return;
+        const prevTier = characterData.health.tier;
+        const next = applyRest(characterData, args.type === 'LONG' ? 'LONG' : 'SHORT');
+
+        setCharacterData(next);
+        if (prevTier !== next.health.tier) {
+          setHealthDropPulse(true);
+          setTimeout(() => setHealthDropPulse(false), 700);
+        }
+        await persistCharacter(next);
+        return;
+      }
+
+      if (call.name === 'trigger_levelup') {
+        const sysMsg: Message = {
+          id: crypto.randomUUID(),
+          role: Role.SYSTEM,
+          content: '[SISTEMA] Evolucao rara ativada. O mestre vai narrar a mudanca.',
+          timestamp: Date.now(),
+        };
+        const nextMessages = [...baseMessages, sysMsg];
+        setMessages(nextMessages);
+        await persistMessage(sysMsg);
         return;
       }
 
