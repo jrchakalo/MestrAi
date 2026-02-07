@@ -147,7 +147,7 @@ export default function AuthPage() {
 
         <div className="text-center pt-2">
           <button
-            className="text-indigo-400 text-sm hover:text-indigo-300 underline"
+            className="text-purple-400 text-sm hover:text-purple-300 underline"
             onClick={() => setAuthMode(authMode === 'LOGIN' ? 'SIGNUP' : 'LOGIN')}
           >
             {authMode === 'LOGIN' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}

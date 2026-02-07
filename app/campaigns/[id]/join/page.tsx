@@ -402,7 +402,7 @@ export default function JoinCampaignPage() {
           <p className="text-slate-400 text-sm">{campaign.title} • {campaign.system_name}</p>
         </div>
 
-        <div className="bg-indigo-900/20 border border-indigo-700/50 p-4 rounded text-sm text-indigo-200">
+        <div className="bg-purple-900/20 border border-purple-700/50 p-4 rounded text-sm text-purple-200">
           Após enviar seus dados, o mestre precisa aprovar sua entrada.
         </div>
 
@@ -424,16 +424,16 @@ export default function JoinCampaignPage() {
             type="button"
             onClick={handleGenName}
             disabled={status !== 'idle' || generatingField === 'name'}
-            className="absolute right-2 top-8 text-xs bg-indigo-900/50 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50 px-2 py-1 rounded transition-colors"
+            className="absolute right-2 top-8 text-xs bg-purple-900/50 hover:bg-purple-800 text-purple-200 border border-purple-700/50 px-2 py-1 rounded transition-colors"
           >
-            {generatingField === 'name' ? <LoadingDots className="text-indigo-200" /> : '✨ IA'}
+            {generatingField === 'name' ? <LoadingDots className="text-purple-200" /> : '✨ IA'}
           </button>
         </div>
 
         <div className="relative">
           <label className="text-sm font-medium text-slate-300 mb-1 block">Aparência Física</label>
           <textarea
-            className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-24 focus:ring-2 focus:ring-indigo-500"
+            className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-24 focus:ring-2 focus:ring-purple-500"
             value={appearance}
             onChange={(e) => setAppearance(e.target.value)}
             disabled={status !== 'idle'}
@@ -442,9 +442,9 @@ export default function JoinCampaignPage() {
             type="button"
             onClick={handleGenAppearance}
             disabled={status !== 'idle' || generatingField === 'appearance'}
-            className="absolute right-2 top-8 text-xs bg-indigo-900/50 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50 px-2 py-1 rounded transition-colors"
+            className="absolute right-2 top-8 text-xs bg-purple-900/50 hover:bg-purple-800 text-purple-200 border border-purple-700/50 px-2 py-1 rounded transition-colors"
           >
-            {generatingField === 'appearance' ? <LoadingDots className="text-indigo-200" /> : '✨ IA'}
+            {generatingField === 'appearance' ? <LoadingDots className="text-purple-200" /> : '✨ IA'}
           </button>
         </div>
 
@@ -459,16 +459,16 @@ export default function JoinCampaignPage() {
             type="button"
             onClick={handleGenProfession}
             disabled={status !== 'idle' || generatingField === 'profession'}
-            className="absolute right-2 top-8 text-xs bg-indigo-900/50 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50 px-2 py-1 rounded transition-colors"
+            className="absolute right-2 top-8 text-xs bg-purple-900/50 hover:bg-purple-800 text-purple-200 border border-purple-700/50 px-2 py-1 rounded transition-colors"
           >
-            {generatingField === 'profession' ? <LoadingDots className="text-indigo-200" /> : '✨ IA'}
+            {generatingField === 'profession' ? <LoadingDots className="text-purple-200" /> : '✨ IA'}
           </button>
         </div>
 
         <div className="relative">
           <label className="text-sm font-medium text-slate-300 mb-1 block">Backstory</label>
           <textarea
-            className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-28 focus:ring-2 focus:ring-indigo-500"
+            className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-28 focus:ring-2 focus:ring-purple-500"
             value={backstory}
             onChange={(e) => setBackstory(e.target.value)}
             disabled={status !== 'idle'}
@@ -477,9 +477,9 @@ export default function JoinCampaignPage() {
             type="button"
             onClick={handleGenBackstory}
             disabled={status !== 'idle' || generatingField === 'backstory'}
-            className="absolute right-2 top-8 text-xs bg-indigo-900/50 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50 px-2 py-1 rounded transition-colors"
+            className="absolute right-2 top-8 text-xs bg-purple-900/50 hover:bg-purple-800 text-purple-200 border border-purple-700/50 px-2 py-1 rounded transition-colors"
           >
-            {generatingField === 'backstory' ? <LoadingDots className="text-indigo-200" /> : '✨ IA'}
+            {generatingField === 'backstory' ? <LoadingDots className="text-purple-200" /> : '✨ IA'}
           </button>
         </div>
 

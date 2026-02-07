@@ -24,20 +24,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="min-h-screen bg-slate-950 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        <header className="flex justify-between items-center">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Minhas Mesas</h1>
             <p className="text-slate-400">Gerencie suas campanhas de RPG.</p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={onCreateNew}>+ Nova Mesa</Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button onClick={onCreateNew} className="w-full sm:w-auto">+ Nova Mesa</Button>
             {onJoinById && (
-              <Button variant="secondary" onClick={() => {
+              <Button
+                variant="secondary"
+                className="w-full sm:w-auto"
+                onClick={() => {
                 const id = prompt('Cole o ID da campanha:');
                 if (id) onJoinById(id.trim());
-              }}>Entrar por ID</Button>
+              }}>
+                Entrar por ID
+              </Button>
             )}
-            <Button variant="outline" onClick={onLogout}>Sair</Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={onLogout}>Sair</Button>
           </div>
         </header>
 
@@ -54,7 +59,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 className={`border rounded-xl p-6 transition-colors cursor-pointer flex flex-col h-full relative overflow-hidden ${
                   camp.status === CampaignStatus.ARCHIVED 
                     ? 'bg-slate-900/50 border-slate-800 opacity-75 grayscale-[0.5] hover:opacity-100 hover:grayscale-0' 
-                    : 'bg-slate-900 border-slate-800 hover:border-indigo-500'
+                    : 'bg-slate-900 border-slate-800 hover:border-purple-500'
                 }`}
                 onClick={() => onSelectCampaign(camp.id)}
               >
@@ -79,7 +84,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     {onEditCampaign && (
                       <button
                         type="button"
-                        className="text-xs text-indigo-300 hover:text-indigo-100"
+                        className="text-xs text-purple-300 hover:text-purple-100"
                         onClick={(e) => { e.stopPropagation(); onEditCampaign(camp.id); }}
                       >
                         Editar

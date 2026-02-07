@@ -201,7 +201,7 @@ export default function App() {
             
             <div className="text-center pt-2">
                 <button 
-                   className="text-indigo-400 text-sm hover:text-indigo-300 underline"
+                   className="text-purple-400 text-sm hover:text-purple-300 underline"
                    onClick={() => {
                        setAuthMode(authMode === 'LOGIN' ? 'SIGNUP' : 'LOGIN');
                    }}
@@ -278,7 +278,7 @@ export default function App() {
   };
 
   return (
-    <div className="font-sans antialiased text-slate-100 bg-slate-950 min-h-screen selection:bg-indigo-500/30 relative">
+    <div className="font-sans antialiased text-slate-100 bg-slate-950 min-h-screen selection:bg-purple-500/30 relative">
       {toast && (
         <Toast 
           message={toast.msg} 

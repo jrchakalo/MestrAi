@@ -20,10 +20,10 @@ export const Button: React.FC<ButtonProps> = ({
   children, 
   ...props 
 }) => {
-  const baseStyles = "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:pointer-events-none disabled:opacity-50";
+  const baseStyles = "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:pointer-events-none disabled:opacity-50";
   
   const variants = {
-    primary: "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm",
+    primary: "bg-purple-600 text-white hover:bg-purple-700 shadow-sm",
     secondary: "bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700",
     ghost: "hover:bg-slate-800 text-slate-300 hover:text-white",
     destructive: "bg-red-600 text-white hover:bg-red-700",

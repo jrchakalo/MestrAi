@@ -192,15 +192,15 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
       type="button" 
       onClick={onClick} 
       disabled={loading}
-      className="absolute right-2 top-8 text-xs bg-indigo-900/50 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/50 px-2 py-1 rounded transition-colors"
+      className="absolute right-2 top-8 text-xs bg-purple-900/50 hover:bg-purple-800 text-purple-200 border border-purple-700/50 px-2 py-1 rounded transition-colors"
     >
-      {loading ? <LoadingDots className="text-indigo-200" /> : "✨ IA"}
+      {loading ? <LoadingDots className="text-purple-200" /> : "✨ IA"}
     </button>
   );
 
   const renderWorldStep = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <h3 className="text-xl font-bold text-indigo-400">Passo 1: O Mundo</h3>
+      <h3 className="text-xl font-bold text-purple-400">Passo 1: O Mundo</h3>
       
       <div className="relative">
         <Input 
@@ -228,7 +228,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         <div>
             <label className="text-sm font-medium text-slate-300 mb-1 block">Sistema</label>
             <select 
-            className="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-slate-100 focus:ring-2 focus:ring-indigo-500"
+            className="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-slate-100 focus:ring-2 focus:ring-purple-500"
             value={formData.systemName}
             onChange={e => setFormData({...formData, systemName: e.target.value})}
             >
@@ -242,7 +242,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
       <div className="relative">
         <label className="text-sm font-medium text-slate-300 mb-1 block">História do Mundo & Contexto</label>
         <textarea 
-          className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-32 focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder:text-slate-600"
+          className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-32 focus:ring-2 focus:ring-purple-500 focus:outline-none placeholder:text-slate-600"
           value={formData.worldHistory}
           onChange={e => setFormData({...formData, worldHistory: e.target.value})}
           placeholder="A IA irá gerar baseada no Gênero e Sistema escolhidos..."
@@ -274,7 +274,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
 
   const renderCharacterStep = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <h3 className="text-xl font-bold text-indigo-400">Passo 2: O Herói</h3>
+      <h3 className="text-xl font-bold text-purple-400">Passo 2: O Herói</h3>
 
       <div className="flex flex-col md:flex-row gap-6">
         <div className="flex-1 space-y-4">
@@ -291,7 +291,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
           <div className="relative">
             <label className="text-sm font-medium text-slate-300 mb-1 block">Aparência Física</label>
             <textarea 
-              className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-24 focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-24 focus:ring-2 focus:ring-purple-500"
               value={formData.characterAppearance}
               onChange={e => setFormData({...formData, characterAppearance: e.target.value})}
               placeholder="Cabelos prateados, cicatriz no olho esquerdo, veste armadura de couro..."
@@ -341,7 +341,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
       <div className="relative">
         <label className="text-sm font-medium text-slate-300 mb-1 block">História do Personagem (Background)</label>
         <textarea 
-          className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-32 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          className="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-32 focus:ring-2 focus:ring-purple-500 focus:outline-none"
           value={formData.characterBackstory}
           onChange={e => setFormData({...formData, characterBackstory: e.target.value})}
           placeholder="Nasceu nas ruas de..."
@@ -349,15 +349,20 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         <MagicBtn onClick={handleGenBackstory} loading={generatingField === 'backstory'} />
       </div>
 
-      <div className="flex gap-4 pt-4">
-        <Button variant="ghost" onClick={() => setStep('WORLD')}>&larr; Voltar</Button>
+      <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center">
+        <Button className="w-full sm:w-auto" variant="ghost" onClick={() => setStep('WORLD')}>&larr; Voltar</Button>
         <Button 
           onClick={handleSubmit} 
           isLoading={submitting}
           disabled={submitting || !formData.characterName || !formData.characterBackstory} 
-          className="flex-1"
+          className="w-full sm:flex-1"
         >
-          {submitting ? 'Iniciando...' : 'Iniciar Aventura Agora'}
+          {submitting ? 'Iniciando...' : (
+            <>
+              <span className="sm:hidden">Iniciar Aventura</span>
+              <span className="hidden sm:inline">Iniciar Aventura Agora</span>
+            </>
+          )}
         </Button>
       </div>
     </div>
@@ -369,8 +374,8 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         <div className="mb-6 flex justify-between items-center border-b border-slate-800 pb-4">
           <h2 className="text-2xl font-bold text-white">Criar Nova Mesa</h2>
           <div className="flex gap-2">
-            <span className={`w-3 h-3 rounded-full ${step === 'WORLD' ? 'bg-indigo-500' : 'bg-slate-700'}`} />
-            <span className={`w-3 h-3 rounded-full ${step === 'CHARACTER' ? 'bg-indigo-500' : 'bg-slate-700'}`} />
+            <span className={`w-3 h-3 rounded-full ${step === 'WORLD' ? 'bg-purple-500' : 'bg-slate-700'}`} />
+            <span className={`w-3 h-3 rounded-full ${step === 'CHARACTER' ? 'bg-purple-500' : 'bg-slate-700'}`} />
           </div>
         </div>
 

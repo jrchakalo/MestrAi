@@ -93,6 +93,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const [newKeyInput, setNewKeyInput] = useState('');
   
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const pendingMessagesRef = useRef<Message[] | null>(null);
   const initSentRef = useRef(false);
   const prevStatusRef = useRef<CampaignStatus | null>(null);
@@ -188,6 +189,13 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       currentIndex,
       actions,
     });
+  };
+
+  const resizeInput = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    const next = Math.min(el.scrollHeight, 180);
+    el.style.height = `${next}px`;
   };
 
   // --- Initialization ---
@@ -474,6 +482,10 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, campaign.id]);
+
+  useEffect(() => {
+    resizeInput(inputRef.current);
+  }, [input]);
 
   useEffect(() => {
     setLocalPlayerStatus(playerStatus);
@@ -1176,18 +1188,19 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   // --- Render ---
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950">
+    <div className="flex flex-col min-h-[100dvh] bg-slate-950">
       {toast && (
         <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />
       )}
       {/* Header */}
-      <div className="h-14 border-b border-slate-800 bg-slate-900 flex items-center justify-between px-4 shrink-0 z-10">
-        <div className="flex items-center gap-2">
-           <Button variant="ghost" size="sm" onClick={onExit}>&larr; Voltar</Button>
-           <h2 className="font-bold text-slate-100 hidden md:block">{campaign.title}</h2>
-        </div>
-        <div className="flex items-center gap-2">
-           <span className="text-xs font-mono text-indigo-400 border border-indigo-900 bg-indigo-950/50 px-2 py-1 rounded">
+      <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900 px-4 py-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+             <Button variant="ghost" size="sm" onClick={onExit}>&larr; Voltar</Button>
+             <h2 className="font-bold text-slate-100 hidden md:block">{campaign.title}</h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+           <span className="text-xs font-mono text-purple-400 border border-purple-900 bg-purple-950/50 px-2 py-1 rounded">
              {campaign.systemName}
            </span>
            <span className="text-xs text-slate-400 border border-slate-800 bg-slate-950/50 px-2 py-1 rounded">
@@ -1250,6 +1263,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
            >
              Convidar
            </Button>
+          </div>
         </div>
       </div>
 
@@ -1334,7 +1348,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
                                 <p className="text-[10px] uppercase text-slate-500">{key}</p>
                                 <p className="text-slate-200 font-semibold">{String(value)}</p>
                                 {showBonus && Number.isFinite(numeric) && (
-                                  <p className="text-[10px] text-indigo-300">{formatBonus(numeric)}</p>
+                                  <p className="text-[10px] text-purple-300">{formatBonus(numeric)}</p>
                                 )}
                                 {thresholds && (
                                   <div className="text-[10px] text-slate-400">
@@ -1392,15 +1406,15 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth" ref={scrollRef}>
         {motd && (
-          <div className="bg-emerald-900/20 border border-emerald-700/50 rounded-xl p-4 text-sm text-emerald-200">
+          <div className="bg-purple-900/20 border border-purple-700/50 rounded-xl p-4 text-sm text-purple-200">
             <p className="font-semibold mb-1">Mensagem do Mestre</p>
             <p>{motd.replace('[SISTEMA] ', '')}</p>
           </div>
         )}
         {campaignStatus === CampaignStatus.WAITING && (
-          <div className="bg-indigo-900/20 border border-indigo-700/50 rounded-xl p-4 text-sm text-indigo-200">
+          <div className="bg-purple-900/20 border border-purple-700/50 rounded-xl p-4 text-sm text-purple-200">
             <p className="font-semibold mb-1">Sala de espera ativa</p>
-            <p className="text-indigo-200/80">Jogadores: {playerCount}/{campaign.maxPlayers || 5}. O mestre pode iniciar quando quiser.</p>
+            <p className="text-purple-200/80">Jogadores: {playerCount}/{campaign.maxPlayers || 5}. O mestre pode iniciar quando quiser.</p>
           </div>
         )}
         {localPlayerStatus === 'pending' && (
@@ -1412,7 +1426,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           <div key={msg.id} className={`flex ${msg.role === Role.USER ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[90%] md:max-w-2xl rounded-2xl p-4 overflow-hidden ${
               msg.role === Role.USER 
-                ? 'bg-indigo-600 text-white rounded-br-none' 
+                ? 'bg-purple-600 text-white rounded-br-none' 
                 : msg.role === Role.SYSTEM && msg.type !== 'image'
                 ? 'bg-slate-800 text-slate-400 text-sm border border-slate-700 w-full md:w-auto text-center'
                 : 'bg-slate-900 text-slate-200 border border-slate-800 rounded-bl-none shadow-lg'
@@ -1480,9 +1494,9 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           {loading && (
           <div className="flex justify-start animate-in fade-in duration-300">
              <div className="bg-slate-900 p-4 rounded-2xl rounded-bl-none flex gap-2 items-center border border-slate-800">
-                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
-                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
-                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
              </div>
           </div>
         )}
@@ -1502,7 +1516,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       {/* Input Area */}
       {!deathState?.isDead && (
-        <div className="p-4 bg-slate-900 border-t border-slate-800 shrink-0">
+        <div className="sticky bottom-0 z-20 bg-slate-900 border-t border-slate-800 p-4 shrink-0">
           {turnState.active && (
             <div className="max-w-4xl mx-auto mb-2 text-xs text-slate-400">
               Jogador da vez: {turnState.orderNames[turnState.currentIndex] || 'Jogador'}
@@ -1512,8 +1526,10 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
             className="max-w-4xl mx-auto flex gap-2"
             onSubmit={(e) => { e.preventDefault(); handleSendMessage(input); }}
           >
-            <input
-              className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            <textarea
+              ref={inputRef}
+              rows={1}
+              className="flex-1 resize-none bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
               placeholder={
                 loading
                   ? "Narrando..."
@@ -1531,6 +1547,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
               }
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onInput={(e) => resizeInput(e.currentTarget)}
               disabled={loading || !!diceRequest || campaignStatus === CampaignStatus.ARCHIVED || campaignStatus === CampaignStatus.WAITING || campaignStatus === CampaignStatus.PAUSED || localPlayerStatus === 'pending' || localPlayerStatus === 'banned' || (turnState.active && userId !== turnState.order[turnState.currentIndex])}
               autoFocus
             />
@@ -1539,7 +1556,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
             </Button>
           </form>
           {turnState.active && userId === turnState.order[turnState.currentIndex] && turnRoll !== null && (
-            <div className="max-w-4xl mx-auto mt-2 text-xs text-indigo-300">
+            <div className="max-w-4xl mx-auto mt-2 text-xs text-purple-300">
               Rolagem registrada: {turnRoll}
             </div>
           )}
@@ -1577,7 +1594,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       )}
 
       {campaignStatus === CampaignStatus.WAITING && (
-        <div className="p-2 bg-indigo-950 text-center text-xs text-indigo-200 font-mono uppercase tracking-wider">
+        <div className="p-2 bg-purple-950 text-center text-xs text-purple-200 font-mono uppercase tracking-wider">
           Sala de espera - aguardando início
         </div>
       )}

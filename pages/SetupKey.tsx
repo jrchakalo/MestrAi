@@ -64,14 +64,15 @@ export const SetupKey: React.FC<SetupKeyProps> = ({ onComplete, showToast }) => 
         <div className="bg-yellow-900/20 border border-yellow-700/50 p-4 rounded text-sm text-yellow-200">
           <p className="font-bold mb-1">⚠️ Aviso Importante</p>
           <p>Nós NÃO armazenamos sua chave em nossos servidores. Ela é salva <strong>localmente no seu navegador</strong>. Se você limpar o cache ou trocar de dispositivo/navegador, será necessário inseri-la novamente.</p>
+          <p className="mt-2">A Groq mostra a chave apenas uma vez. Copie e guarde antes de fechar a tela.</p>
         </div>
 
         <div className="space-y-4">
           <div className="bg-slate-800 p-4 rounded text-sm text-slate-300">
             <ol className="list-decimal list-inside space-y-2">
-              <li>Acesse <a href="https://console.groq.com/keys" target="_blank" className="text-indigo-400 underline">Groq Console</a>.</li>
+              <li>Acesse <a href="https://console.groq.com/keys" target="_blank" className="text-purple-400 underline">Groq Console</a>.</li>
               <li>Clique em "Create API Key" para gerar uma chave.</li>
-              <li>Copie a chave gerada e cole abaixo.</li>
+              <li>Copie a chave gerada (ela aparece apenas uma vez) e cole abaixo.</li>
             </ol>
           </div>
 
