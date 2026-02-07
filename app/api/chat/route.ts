@@ -7,7 +7,7 @@ import { buildSystemPrompt } from '../../../lib/ai/systemPrompt';
 import { isRateLimited } from '../../../lib/ai/rateLimit';
 import { withModelFallback } from '../../../lib/ai/modelPool';
 import { Campaign, Message, Role } from '../../../types';
-import { createServerClient } from '../../../lib/supabase/server';
+import { createAdminClient, createServerClient } from '../../../lib/supabase/server';
 
 // shared rate limiter in lib/ai/rateLimit
 const STREAMING_ENABLED = false;
@@ -181,7 +181,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ text: '[SISTEMA] Mesa em espera.', toolCalls: [] });
     }
 
-    const system = buildSystemPrompt(campaign);
+    const admin = createAdminClient();
+    let roster: Array<{ id: string; name: string }> = [];
+    if (admin) {
+      const { data: rosterRows } = await admin
+        .from('campaign_players')
+        .select('player_id, character_name')
+        .eq('campaign_id', campaign.id)
+        .eq('status', 'accepted');
+      roster = (rosterRows || []).map((row: any) => ({
+        id: row.player_id,
+        name: row.character_name || 'Jogador',
+      }));
+    }
+
+    const system = buildSystemPrompt(campaign)
+      .concat(
+        roster.length > 1
+          ? `\n\n## 8. Multiplayer POV\nJogadores ativos: ${roster.map((p) => p.name).join(', ')}.\n- Narre a mesma cena para todos, mas escreva um bloco de POV para cada jogador no formato:\n  "POV - <Nome>: ..."\n- As acoes de um jogador impactam o estado e as consequencias para os demais.\n- Mantenha coesao entre os POVs, evitando contradicoes.\n`
+          : ''
+      );
 
     const toChatMessage = (role: 'user' | 'assistant', content: string): ChatCompletionMessageParam => ({
       role,
