@@ -17,8 +17,10 @@ create table if not exists public.campaigns (
   owner_id uuid not null references auth.users(id) on delete cascade,
   title text not null,
   description text,
-  genre text,
-  system_name text,
+  genero text,
+  tom text,
+  magia text,
+  tech text,
   visual_style text,
   world_bible_json jsonb default '{}'::jsonb,
   current_context_summary text,
@@ -31,6 +33,24 @@ create table if not exists public.campaigns (
 -- Ensure column exists on existing databases
 alter table public.campaigns
   add column if not exists max_players int not null default 5;
+
+alter table public.campaigns
+  add column if not exists genero text;
+
+alter table public.campaigns
+  add column if not exists tom text;
+
+alter table public.campaigns
+  add column if not exists magia text;
+
+alter table public.campaigns
+  add column if not exists tech text;
+
+alter table public.campaigns
+  drop column if exists system_name;
+
+alter table public.campaigns
+  drop column if exists genre;
 
 alter table public.campaigns
   add constraint campaigns_status_check
@@ -270,15 +290,17 @@ create or replace function public.get_campaign_public(campaign_id uuid)
 returns table(
   id uuid,
   title text,
-  system_name text,
-  genre text,
+  genero text,
+  tom text,
+  magia text,
+  tech text,
   visual_style text,
   world_bible_json jsonb,
   status text,
   max_players int,
   owner_id uuid
 ) as $$
-  select c.id, c.title, c.system_name, c.genre, c.visual_style, c.world_bible_json, c.status, c.max_players, c.owner_id
+  select c.id, c.title, c.genero, c.tom, c.magia, c.tech, c.visual_style, c.world_bible_json, c.status, c.max_players, c.owner_id
   from public.campaigns c
   where c.id = $1;
 $$ language sql security definer set search_path = public;
