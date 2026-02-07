@@ -14,10 +14,6 @@ function buildPrompt(type: string, payload: Record<string, any> = {}) {
   switch (type) {
     case 'suggestTitle':
       return `Sugira um titulo criativo e memoravel para uma campanha de RPG com genero "${payload.genero}", tom "${payload.tom}", magia "${payload.magia}" e tecnologia "${payload.tech}". Idioma: Portugues. Retorne APENAS o titulo, sem aspas.`;
-    case 'suggestGenre':
-      return payload.title && payload.title.length > 3
-        ? `Based on the RPG campaign title "${payload.title}", suggest 1 to 3 suitable sub-genres/themes separated by commas. Language: Portuguese. Return ONLY the genres.`
-        : `Suggest a creative RPG sub-genre based on 'Dark Fantasy' but make it unique (max 4 words). Return ONLY the genre name.`;
     case 'suggestWorldHistory':
       return `Crie uma historia de mundo curta e envolvente (max 3 frases) para uma campanha de genero "${payload.genero}", tom "${payload.tom}", magia "${payload.magia}" e tecnologia "${payload.tech}". Idioma: Portugues.`;
     case 'suggestStyle':
