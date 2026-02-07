@@ -3,7 +3,6 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Dashboard } from '../../pages/Dashboard';
 import { Campaign, CampaignStatus } from '../../types';
-import { normalizeSystemName } from '../../constants';
 import React, { useEffect, useState, Suspense } from 'react';
 import { supabase } from '../../lib/supabase/client';
 import { Toast } from '../../components/ui/Toast';
@@ -40,7 +39,7 @@ function DashboardClient() {
     const { data, error } = await supabase
       .from('campaign_players')
       .select(
-        'campaign_id, character_name, character_data_json, campaigns:campaigns(id,owner_id,title,description,genre,system_name,visual_style,world_bible_json,status,max_players,created_at)'
+        'campaign_id, character_name, character_data_json, campaigns:campaigns(id,owner_id,title,description,genero,tom,magia,tech,visual_style,world_bible_json,status,max_players,created_at)'
       )
       .eq('player_id', userId);
 
@@ -58,7 +57,6 @@ function DashboardClient() {
           if (!camp) return null;
           const worldHistory = camp.world_bible_json?.worldHistory || '';
           const charData = row.character_data_json || {};
-          const systemName = normalizeSystemName(camp.system_name || 'Narrativo');
 
           return {
             id: camp.id,
@@ -66,8 +64,10 @@ function DashboardClient() {
             title: camp.title,
             description: camp.description || '',
             worldHistory,
-            genre: camp.genre || '',
-            systemName,
+            genero: camp.genero || '',
+            tom: camp.tom || '',
+            magia: camp.magia || '',
+            tech: camp.tech || '',
             visualStyle: camp.visual_style || '',
             characterName: row.character_name || '',
             characterAppearance: charData.appearance || '',

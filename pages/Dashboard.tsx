@@ -71,7 +71,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 
                 <div className="flex justify-between items-start mb-2 mt-1">
                   <span className="text-xs font-mono uppercase text-purple-400 bg-purple-950 px-2 py-1 rounded">
-                    {camp.systemName}
+                    {camp.genero}
                   </span>
                   {(onEditCampaign || onDeleteCampaign) && (
                     <div className="flex gap-1">
@@ -120,7 +120,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <p className="text-slate-400 text-sm mb-4 line-clamp-3 flex-1">{camp.worldHistory || camp.description}</p>
                 
                 <div className="mt-auto pt-4 border-t border-slate-800 flex justify-between items-center text-sm text-slate-500">
-                  <span className="truncate max-w-[60%]">{camp.genre}</span>
+                  <span className="truncate max-w-[60%]">{camp.tom}</span>
                   <span className="text-purple-400 group-hover:translate-x-1 transition-transform">
                     {camp.status === CampaignStatus.ARCHIVED ? 'Ler Histórico' : 'Jogar'} &rarr;
                   </span>

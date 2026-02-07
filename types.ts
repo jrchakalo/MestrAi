@@ -70,10 +70,12 @@ export interface Message {
 }
 
 export interface DiceRollRequest {
-  attribute: string;
-  difficulty_class: number;
-  description: string;
+  attribute: AttributeName;
+  is_profession_relevant: boolean;
+  difficulty: Difficulty;
 }
+
+export type Difficulty = "NORMAL" | "HARD" | "VERY_HARD";
 
 export type AttributeName = "VIGOR" | "DESTREZA" | "MENTE" | "PRESENÇA";
 export type HealthTier = "HEALTHY" | "INJURED" | "CRITICAL" | "DEAD";

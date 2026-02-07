@@ -48,7 +48,10 @@ export default function NewCampaignPage() {
           ...(effectiveKey ? { 'x-custom-api-key': effectiveKey } : {}),
         },
         body: JSON.stringify({
-          systemName: camp.systemName,
+          genero: camp.genero,
+          tom: camp.tom,
+          magia: camp.magia,
+          tech: camp.tech,
           name: camp.characterName,
           appearance: camp.characterAppearance,
           backstory: camp.characterBackstory,
@@ -74,7 +77,7 @@ export default function NewCampaignPage() {
       console.error(e);
     }
 
-    if (!inferred?.attributes || !inferred?.class_or_role || inferred?.hp === undefined) {
+    if (!inferred?.attributes) {
       alert('Não foi possível concluir a criação da ficha após tentativas internas. Tente novamente.');
       return;
     }
@@ -85,8 +88,10 @@ export default function NewCampaignPage() {
         owner_id: userId,
         title: camp.title,
         description: camp.description,
-        genre: camp.genre,
-        system_name: camp.systemName,
+        genero: camp.genero,
+        tom: camp.tom,
+        magia: camp.magia,
+        tech: camp.tech,
         visual_style: camp.visualStyle,
         world_bible_json: { worldHistory: camp.worldHistory },
         status: CampaignStatus.WAITING,
