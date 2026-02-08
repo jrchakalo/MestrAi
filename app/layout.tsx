@@ -4,6 +4,9 @@ import React from 'react';
 export const metadata = {
   title: 'MestrAi - Virtual Tabletop',
   description: 'Virtual Tabletop com IA como mestre de RPG.',
+  icons: {
+    icon: '/favicon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
