@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Campaign, Message, Role, DiceRollRequest, CampaignStatus } from '../types';
+import { Campaign, Message, Role, DiceRollRequest, CampaignStatus, CharacterSheet, AttributeName, HealthTier } from '../types';
 import { Button } from '../components/ui/Button';
 import { DiceRoller } from '../components/DiceRoller';
 import { Input } from '../components/ui/Input';
 import { supabase } from '../lib/supabaseClient';
 import { Toast } from '../components/ui/Toast';
+import { calculateRoll, applyDamage, applyRest } from '../lib/gameRules';
 
 interface GameSessionProps {
   campaign: Campaign;
@@ -58,31 +59,17 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const [turnRoll, setTurnRoll] = useState<number | null>(null);
   const [turnDiceRequest, setTurnDiceRequest] = useState<DiceRollRequest | null>(null);
   const [showSheet, setShowSheet] = useState(false);
-  const [characterData, setCharacterData] = useState<Record<string, any> | undefined>(campaign.characterData);
+  const [characterData, setCharacterData] = useState<CharacterSheet | undefined>(campaign.characterData);
   const [startingCampaign, setStartingCampaign] = useState(false);
+  const [rollDisplay, setRollDisplay] = useState<{ naturalRoll: number; outcomeLabel: string } | null>(null);
+  const [healthDropPulse, setHealthDropPulse] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
-  const attributeOrder = (() => {
-    if (campaign.systemName === 'D&D 5e') {
-      return ['força', 'destreza', 'constituição', 'inteligência', 'sabedoria', 'carisma'];
-    }
-    if (campaign.systemName === 'Ordem Paranormal') {
-      return ['força', 'agilidade', 'intelecto', 'presença', 'vigor'];
-    }
-    if (campaign.systemName === 'Call of Cthulhu') {
-      return ['força', 'constituição', 'destreza', 'inteligência', 'poder', 'aparência', 'educação', 'tamanho'];
-    }
-    return [];
-  })();
-
-  const formatBonus = (value: number) => {
-    const mod = Math.floor((value - 10) / 2);
-    return mod >= 0 ? `+${mod}` : `${mod}`;
-  };
-
-  const getCocThresholds = (value: number) => {
-    const half = Math.floor(value / 2);
-    const fifth = Math.floor(value / 5);
-    return { half, fifth };
+  const HEALTH_LABELS: Record<HealthTier, string> = {
+    HEALTHY: 'Saudavel',
+    INJURED: 'Machucado -2',
+    CRITICAL: 'Critico -5',
+    DEAD: 'Morto',
   };
 
   const hasNarrativeMessages = (list: Message[]) =>
@@ -93,22 +80,17 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const [newKeyInput, setNewKeyInput] = useState('');
   
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const startingRoundRef = useRef(false);
   const pendingMessagesRef = useRef<Message[] | null>(null);
   const initSentRef = useRef(false);
   const prevStatusRef = useRef<CampaignStatus | null>(null);
 
   const getImageUrl = (msg: Message) => imageOverrides[msg.id] || msg.metadata?.imageUrl || '';
 
-  const dexAttributeKey = (() => {
-    if (campaign.systemName === 'D&D 5e') return 'destreza';
-    if (campaign.systemName === 'Ordem Paranormal') return 'agilidade';
-    if (campaign.systemName === 'Call of Cthulhu') return 'destreza';
-    return 'destreza';
-  })();
-
   const getDexValue = (player: any) => {
-    const attrs = player?.character_data_json?.inferred?.attributes || {};
-    const value = attrs[dexAttributeKey] ?? attrs[dexAttributeKey.toLowerCase()];
+    const attrs = player?.character_data_json?.inferred?.attributes || player?.character_data_json?.attributes || {};
+    const value = attrs.DESTREZA ?? attrs.destreza;
     return typeof value === 'number' ? value : Number(value) || 0;
   };
 
@@ -190,6 +172,13 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     });
   };
 
+  const resizeInput = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    const next = Math.min(el.scrollHeight, 180);
+    el.style.height = `${next}px`;
+  };
+
   // --- Initialization ---
   useEffect(() => {
     const initChat = async () => {
@@ -203,6 +192,11 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         .select('*')
         .eq('campaign_id', campaign.id)
         .order('created_at', { ascending: true });
+
+      if (error) {
+        setToast({ msg: 'Falha ao carregar o chat. Tente novamente.', type: 'error' });
+        return;
+      }
 
       const initialHistory: Message[] = !error && data
         ? data.map((row: any) => {
@@ -238,10 +232,26 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           true
         ); 
       }
+      setHistoryLoaded(true);
     };
     initChat();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign.id, apiKey]);
+
+  useEffect(() => {
+    if (campaignStatus !== CampaignStatus.ACTIVE) return;
+    if (turnState.active) return;
+    if (campaign.ownerId !== userId) return;
+    if (acceptedCount === 0) return;
+    if (startingRoundRef.current) return;
+
+    startingRoundRef.current = true;
+    startTurnRound(true)
+      .catch(() => null)
+      .finally(() => {
+        startingRoundRef.current = false;
+      });
+  }, [campaignStatus, turnState.active, campaign.ownerId, userId, acceptedCount]);
 
   useEffect(() => {
     const loadCounts = async () => {
@@ -457,6 +467,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   }, [campaign.id, campaign.ownerId, userId, auditFilter]);
 
   useEffect(() => {
+    if (!historyLoaded) return;
     if (campaignStatus === CampaignStatus.ACTIVE && !hasNarrativeMessages(messages) && !initSentRef.current) {
       initSentRef.current = true;
       handleSendMessage(
@@ -467,13 +478,17 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         true
       );
     }
-  }, [campaignStatus, messages.length]);
+  }, [campaignStatus, messages.length, historyLoaded]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, campaign.id]);
+
+  useEffect(() => {
+    resizeInput(inputRef.current);
+  }, [input]);
 
   useEffect(() => {
     setLocalPlayerStatus(playerStatus);
@@ -571,6 +586,28 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     });
   };
 
+  const persistCharacter = async (nextData: CharacterSheet) => {
+    if (!userId) return;
+    const { data } = await supabase
+      .from('campaign_players')
+      .select('character_data_json')
+      .eq('campaign_id', campaign.id)
+      .eq('player_id', userId)
+      .maybeSingle();
+
+    const base = (data?.character_data_json || {}) as any;
+    await supabase
+      .from('campaign_players')
+      .update({
+        character_data_json: {
+          ...base,
+          inferred: nextData,
+        },
+      })
+      .eq('campaign_id', campaign.id)
+      .eq('player_id', userId);
+  };
+
   const postAudit = async (content: string, metadata: Record<string, any>) => {
     await supabase.from('messages').insert({
       campaign_id: campaign.id,
@@ -611,7 +648,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     await supabase.from('messages').insert({
       campaign_id: campaign.id,
       role: Role.SYSTEM,
-      content: `[SISTEMA] Iniciando rodada. Ordem de ação: ${orderNames.join(', ')}`,
+      content: '',
       metadata: {
         type: 'system',
         action: 'turn_start',
@@ -619,7 +656,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         order: sorted,
         order_names: orderNames,
         current_index: 0,
-        dex_key: dexAttributeKey,
+        dex_key: 'DESTREZA',
       },
     });
   };
@@ -632,7 +669,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       await supabase.from('messages').insert({
         campaign_id: campaign.id,
         role: 'system',
-        content: `[SISTEMA] Próximo jogador na rodada.`,
+        content: '',
         metadata: {
           type: 'system',
           action: 'turn_advance',
@@ -646,7 +683,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     await supabase.from('messages').insert({
       campaign_id: campaign.id,
       role: 'system',
-      content: `[SISTEMA] Rodada encerrada.`,
+      content: '',
       metadata: {
         type: 'system',
         action: 'turn_end',
@@ -878,6 +915,54 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         return;
       }
 
+      if (call.name === 'apply_damage') {
+        const args = call.args as { type?: 'LIGHT' | 'HEAVY' };
+        if (!characterData) return;
+        const prevTier = characterData.health.tier;
+        const next = applyDamage(characterData, args.type === 'HEAVY' ? 'HEAVY' : 'LIGHT');
+
+        setCharacterData(next);
+        if (prevTier !== next.health.tier) {
+          setHealthDropPulse(true);
+          setTimeout(() => setHealthDropPulse(false), 700);
+        }
+        await persistCharacter(next);
+
+        if (next.health.tier === 'DEAD' && !deathState?.isDead) {
+          await handleDeath('O corpo nao aguentou os ferimentos.', 'A historia segue sem o heroi, deixando ecos do que poderia ter sido.');
+          return;
+        }
+        return;
+      }
+
+      if (call.name === 'apply_rest') {
+        const args = call.args as { type?: 'SHORT' | 'LONG' };
+        if (!characterData) return;
+        const prevTier = characterData.health.tier;
+        const next = applyRest(characterData, args.type === 'LONG' ? 'LONG' : 'SHORT');
+
+        setCharacterData(next);
+        if (prevTier !== next.health.tier) {
+          setHealthDropPulse(true);
+          setTimeout(() => setHealthDropPulse(false), 700);
+        }
+        await persistCharacter(next);
+        return;
+      }
+
+      if (call.name === 'trigger_levelup') {
+        const sysMsg: Message = {
+          id: crypto.randomUUID(),
+          role: Role.SYSTEM,
+          content: '[SISTEMA] Evolucao rara ativada. O mestre vai narrar a mudanca.',
+          timestamp: Date.now(),
+        };
+        const nextMessages = [...baseMessages, sysMsg];
+        setMessages(nextMessages);
+        await persistMessage(sysMsg);
+        return;
+      }
+
       if (call.name === 'generate_image') {
         const prompt = (call.args as any).prompt;
         const visualStyle = campaign.visualStyle;
@@ -908,40 +993,22 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       if (call.name === 'update_character') {
         const updates = (call.args as any) || {};
-        const nextData = {
-          ...(characterData || {}),
+        const nextData: CharacterSheet = {
+          ...(characterData || {
+            name: campaign.characterName,
+            appearance: campaign.characterAppearance,
+            profession: campaign.characterProfession || 'Sem profissao',
+            backstory: campaign.characterBackstory,
+            attributes: { VIGOR: 0, DESTREZA: 0, MENTE: 0, PRESENÇA: 0 },
+            health: { tier: 'HEALTHY', lightDamageCounter: 0 },
+            inventory: [],
+          }),
           ...(updates.profession ? { profession: updates.profession } : {}),
-          ...(updates.hp !== undefined ? { hp: updates.hp } : {}),
           ...(Array.isArray(updates.inventory) ? { inventory: updates.inventory } : {}),
-        } as Record<string, any>;
+        };
 
         setCharacterData(nextData);
-
-        if (updates.hp !== undefined && Number(updates.hp) <= 0 && !deathState?.isDead) {
-          await handleDeath('PV zerado durante o combate.', 'A história segue sem o herói, deixando ecos do que poderia ter sido.');
-          return;
-        }
-
-        if (userId) {
-          const { data } = await supabase
-            .from('campaign_players')
-            .select('character_data_json')
-            .eq('campaign_id', campaign.id)
-            .eq('player_id', userId)
-            .maybeSingle();
-
-          const base = (data?.character_data_json || {}) as any;
-          await supabase
-            .from('campaign_players')
-            .update({
-              character_data_json: {
-                ...base,
-                inferred: nextData,
-              },
-            })
-            .eq('campaign_id', campaign.id)
-            .eq('player_id', userId);
-        }
+        await persistCharacter(nextData);
         return;
       }
     }
@@ -962,6 +1029,11 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       if (trimmed.startsWith('[PERSONAGEM:')) return trimmed;
       return `[PERSONAGEM: ${campaign.characterName}] ${raw}`;
     };
+    if (!isSystemInit && campaignStatus === CampaignStatus.ACTIVE && !turnState.active) {
+      setToast({ msg: 'Aguardando o mestre iniciar a rodada.', type: 'error' });
+      return;
+    }
+
     if (!isSystemInit && turnState.active) {
       if (!userId || userId !== currentPlayerId) {
         setToast({ msg: 'Aguarde sua vez de jogar.', type: 'error' });
@@ -1041,12 +1113,29 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     setDiceRequest(null);
     setLoading(true);
 
-    // Show system message
+    const attributeValue = characterData?.attributes?.[req.attribute as AttributeName] ?? 0;
+    const healthTier = characterData?.health?.tier || 'HEALTHY';
+    const difficulty = req.difficulty || 'NORMAL';
+    const isProfessionRelevant = !!req.is_profession_relevant;
+    const rollResult = calculateRoll({
+      attribute: req.attribute,
+      attributeValue,
+      isProfessionRelevant,
+      difficulty,
+      healthTier,
+      naturalRoll: total,
+    });
+
+    setRollDisplay({
+      naturalRoll: rollResult.naturalRoll || total,
+      outcomeLabel: rollResult.labelPtBr,
+    });
+
     const sysMsg: Message = {
       id: crypto.randomUUID(),
       role: Role.SYSTEM,
-      content: `[SISTEMA] Jogador ${campaign.characterName} rolou ${total}.`,
-      timestamp: Date.now()
+      content: `[ROLAGEM] ${rollResult.labelPtBr}.`,
+      timestamp: Date.now(),
     };
     const baseMessages = pendingMessagesRef.current || messages;
     const nextMessages = [...baseMessages, sysMsg];
@@ -1057,7 +1146,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     try {
       const result = await sendChat({
         baseMessages: nextMessages,
-        toolResponse: { name: 'request_roll', result: total, callId },
+        toolResponse: { name: 'request_roll', result: rollResult.total ?? total, callId },
         autoStartTurn: !turnState.active,
       });
       if (turnState.active && userId === turnState.order[turnState.currentIndex] && !result?.hasToolCalls && result?.didRespond) {
@@ -1093,7 +1182,10 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         .maybeSingle();
 
       const base = (data?.character_data_json || {}) as any;
-      const inferred = { ...(base.inferred || {}), hp: 0 };
+      const inferred = {
+        ...(base.inferred || {}),
+        health: { tier: 'DEAD', lightDamageCounter: 0 },
+      };
 
       await supabase
         .from('campaign_players')
@@ -1173,22 +1265,81 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       }
   };
 
+  const handleUseItem = async (itemId: string) => {
+    if (deathState?.isDead) return;
+    if (!characterData) return;
+    const item = characterData.inventory.find((entry) => entry.id === itemId);
+    if (!item || item.type !== 'consumable' || item.quantity <= 0) return;
+
+    const nextInventory = characterData.inventory.map((entry) => {
+      if (entry.id !== itemId) return entry;
+      return { ...entry, quantity: Math.max(0, entry.quantity - 1) };
+    });
+    const nextData = { ...characterData, inventory: nextInventory };
+    setCharacterData(nextData);
+    await persistCharacter(nextData);
+    await handleSendMessage(`Used ${item.name}`);
+  };
+
+  const sheet: CharacterSheet = characterData || {
+    name: campaign.characterName,
+    appearance: campaign.characterAppearance,
+    profession: campaign.characterProfession || 'Sem profissao',
+    backstory: campaign.characterBackstory,
+    attributes: { VIGOR: 0, DESTREZA: 0, MENTE: 0, PRESENÇA: 0 },
+    health: { tier: 'HEALTHY', lightDamageCounter: 0 },
+    inventory: [],
+  };
+
+  const healthStyles = (() => {
+    switch (sheet.health.tier) {
+      case 'INJURED':
+        return {
+          bar: 'bg-yellow-500',
+          text: 'text-yellow-300',
+          ring: 'ring-yellow-500/40',
+        };
+      case 'CRITICAL':
+        return {
+          bar: 'bg-red-500',
+          text: 'text-red-300',
+          ring: 'ring-red-500/40',
+        };
+      case 'DEAD':
+        return {
+          bar: 'bg-slate-600',
+          text: 'text-slate-400',
+          ring: 'ring-slate-600/40',
+        };
+      default:
+        return {
+          bar: 'bg-emerald-500',
+          text: 'text-emerald-300',
+          ring: 'ring-emerald-500/40',
+        };
+    }
+  })();
+
   // --- Render ---
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950">
+    <div className="flex flex-col min-h-[100dvh] bg-slate-950">
       {toast && (
         <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />
       )}
       {/* Header */}
-      <div className="h-14 border-b border-slate-800 bg-slate-900 flex items-center justify-between px-4 shrink-0 z-10">
-        <div className="flex items-center gap-2">
-           <Button variant="ghost" size="sm" onClick={onExit}>&larr; Voltar</Button>
-           <h2 className="font-bold text-slate-100 hidden md:block">{campaign.title}</h2>
-        </div>
-        <div className="flex items-center gap-2">
-           <span className="text-xs font-mono text-indigo-400 border border-indigo-900 bg-indigo-950/50 px-2 py-1 rounded">
-             {campaign.systemName}
+      <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900 px-4 py-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+             <Button variant="ghost" size="sm" onClick={onExit}>&larr; Voltar</Button>
+             <h2 className="font-bold text-slate-100 hidden md:block">{campaign.title}</h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+           <span className="text-xs font-mono text-purple-400 border border-purple-900 bg-purple-950/50 px-2 py-1 rounded">
+             {campaign.genero}
+           </span>
+           <span className="text-xs text-slate-300 border border-slate-800 bg-slate-950/50 px-2 py-1 rounded">
+             {campaign.tom}
            </span>
            <span className="text-xs text-slate-400 border border-slate-800 bg-slate-950/50 px-2 py-1 rounded">
              {playerCount}/{campaign.maxPlayers || 5}
@@ -1250,6 +1401,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
            >
              Convidar
            </Button>
+          </div>
         </div>
       </div>
 
@@ -1292,97 +1444,67 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
                   <div className="w-14 h-14 rounded-full border border-dashed border-slate-700 flex items-center justify-center text-slate-500">?</div>
                 )}
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-100">{campaign.characterName}</h3>
-                  <p className="text-xs text-slate-400">{campaign.systemName}</p>
+                  <h3 className="text-lg font-semibold text-slate-100">{sheet.name}</h3>
+                  <p className="text-xs text-slate-400">{campaign.genero}</p>
                 </div>
               </div>
               <div className="mt-3 text-sm text-slate-300 space-y-2">
-                <p><strong>Aparência:</strong> {campaign.characterAppearance || '—'}</p>
-                <p><strong>Profissão/Ocupação:</strong> {campaign.characterProfession || characterData?.profession || '—'}</p>
-                <p><strong>Backstory:</strong> {campaign.characterBackstory || '—'}</p>
-                {campaign.characterData && (
-                  <div className="mt-3 bg-slate-950/60 border border-slate-800 rounded-lg p-3">
-                    <p className="text-xs text-slate-400 mb-3">Ficha inferida</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                      <div className="bg-slate-900/60 border border-slate-800 rounded p-2">
-                        <span className="text-xs text-slate-500">Classe/Role</span>
-                        <p className="text-slate-200">{campaign.characterData.class_or_role || '—'}</p>
-                      </div>
-                      <div className="bg-slate-900/60 border border-slate-800 rounded p-2">
-                        <span className="text-xs text-slate-500">HP</span>
-                        <p className="text-slate-200">{campaign.characterData.hp ?? '—'}</p>
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      <p className="text-xs text-slate-500 mb-2">Atributos</p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        {campaign.characterData.attributes && (() => {
-                          const entries = Object.entries(campaign.characterData.attributes);
-                          const ordered = attributeOrder.length > 0
-                            ? attributeOrder
-                                .map((name) => entries.find(([key]) => key.toLowerCase() === name))
-                                .filter(Boolean) as [string, any][]
-                            : [];
-                          const remaining = entries.filter(([key]) => !attributeOrder.includes(key.toLowerCase()));
-                          return [...ordered, ...remaining].map(([key, value]) => {
-                            const numeric = typeof value === 'number' ? value : Number(value);
-                            const showBonus = campaign.systemName === 'D&D 5e' || campaign.systemName === 'Ordem Paranormal';
-                            const showCoc = campaign.systemName === 'Call of Cthulhu';
-                            const thresholds = showCoc && Number.isFinite(numeric) ? getCocThresholds(numeric) : null;
-                            return (
-                              <div key={key} className="bg-slate-900/60 border border-slate-800 rounded p-2 text-center">
-                                <p className="text-[10px] uppercase text-slate-500">{key}</p>
-                                <p className="text-slate-200 font-semibold">{String(value)}</p>
-                                {showBonus && Number.isFinite(numeric) && (
-                                  <p className="text-[10px] text-indigo-300">{formatBonus(numeric)}</p>
-                                )}
-                                {thresholds && (
-                                  <div className="text-[10px] text-slate-400">
-                                    <span>{thresholds.half}</span> / <span>{thresholds.fifth}</span>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          });
-                        })()}
+                <p><strong>Aparencia:</strong> {sheet.appearance || '—'}</p>
+                <p><strong>Profissao:</strong> {sheet.profession || '—'}</p>
+                <p><strong>Backstory:</strong> {sheet.backstory || '—'}</p>
+                <div className="mt-3 bg-slate-950/60 border border-slate-800 rounded-lg p-3">
+                  <p className="text-xs text-slate-400 mb-3">Estado atual</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div className="bg-slate-900/60 border border-slate-800 rounded p-2">
+                      <span className="text-xs text-slate-500">Saude</span>
+                      <p className={`text-slate-200 ${healthStyles.text}`}>{HEALTH_LABELS[sheet.health.tier]}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        {[0, 1, 2].map((idx) => (
+                          <span
+                            key={`health-dot-${idx}`}
+                            className={`h-2 w-2 rounded-full ${sheet.health.lightDamageCounter > idx ? 'bg-yellow-500' : 'bg-slate-700'}`}
+                          />
+                        ))}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-xs text-slate-500 mb-2">Perícias</p>
-                        <ul className="text-slate-200 text-sm list-disc list-inside">
-                          {(Array.isArray(campaign.characterData.skills)
-                            ? campaign.characterData.skills
-                            : typeof campaign.characterData.skills === 'string'
-                              ? campaign.characterData.skills.split(',').map((s: string) => s.trim()).filter(Boolean)
-                              : []).map((s: string, idx: number) => (
-                            <li key={`${s}-${idx}`}>{s}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 mb-2">Inventário</p>
-                        <ul className="text-slate-200 text-sm list-disc list-inside">
-                          {(campaign.characterData.inventory || []).map((i: string, idx: number) => (
-                            <li key={`${i}-${idx}`}>{i}</li>
-                          ))}
-                        </ul>
-                      </div>
+                    <div className="bg-slate-900/60 border border-slate-800 rounded p-2">
+                      <span className="text-xs text-slate-500">Inventario</span>
+                      <ul className="mt-1 text-slate-200 text-sm space-y-2">
+                        {sheet.inventory.length === 0 && <li>Vazio</li>}
+                        {sheet.inventory.map((item) => (
+                          <li key={item.id} className="flex items-center justify-between gap-2">
+                            <span>
+                              {item.name} {item.quantity > 0 ? `x${item.quantity}` : ''}
+                            </span>
+                            {item.type === 'consumable' ? (
+                              <button
+                                type="button"
+                                className="text-xs text-purple-200 border border-purple-700/60 px-2 py-1 rounded hover:bg-purple-900/40"
+                                onClick={() => handleUseItem(item.id)}
+                                disabled={item.quantity <= 0}
+                              >
+                                Usar
+                              </button>
+                            ) : (
+                              <span className="text-[10px] uppercase text-slate-500">Equipamento</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                    {campaign.systemName === 'Call of Cthulhu' && (
-                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                        <div className="bg-slate-900/60 border border-slate-800 rounded p-2">
-                          <span className="text-xs text-slate-500">SAN</span>
-                          <p className="text-slate-200">{campaign.characterData.sanity ?? '—'}</p>
-                        </div>
-                        <div className="bg-slate-900/60 border border-slate-800 rounded p-2">
-                          <span className="text-xs text-slate-500">LUCK</span>
-                          <p className="text-slate-200">{campaign.characterData.luck ?? '—'}</p>
-                        </div>
-                      </div>
-                    )}
                   </div>
-                )}
+                  <div className="mt-3">
+                    <p className="text-xs text-slate-500 mb-2">Atributos</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {(['VIGOR', 'DESTREZA', 'MENTE', 'PRESENÇA'] as AttributeName[]).map((attr) => (
+                        <div key={attr} className="bg-slate-900/60 border border-slate-800 rounded p-2 text-center">
+                          <p className="text-[10px] uppercase text-slate-500">{attr}</p>
+                          <p className="text-slate-200 font-semibold">{sheet.attributes[attr]}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1392,15 +1514,15 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth" ref={scrollRef}>
         {motd && (
-          <div className="bg-emerald-900/20 border border-emerald-700/50 rounded-xl p-4 text-sm text-emerald-200">
+          <div className="bg-purple-900/20 border border-purple-700/50 rounded-xl p-4 text-sm text-purple-200">
             <p className="font-semibold mb-1">Mensagem do Mestre</p>
             <p>{motd.replace('[SISTEMA] ', '')}</p>
           </div>
         )}
         {campaignStatus === CampaignStatus.WAITING && (
-          <div className="bg-indigo-900/20 border border-indigo-700/50 rounded-xl p-4 text-sm text-indigo-200">
+          <div className="bg-purple-900/20 border border-purple-700/50 rounded-xl p-4 text-sm text-purple-200">
             <p className="font-semibold mb-1">Sala de espera ativa</p>
-            <p className="text-indigo-200/80">Jogadores: {playerCount}/{campaign.maxPlayers || 5}. O mestre pode iniciar quando quiser.</p>
+            <p className="text-purple-200/80">Jogadores: {playerCount}/{campaign.maxPlayers || 5}. O mestre pode iniciar quando quiser.</p>
           </div>
         )}
         {localPlayerStatus === 'pending' && (
@@ -1408,11 +1530,22 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
             Você está em modo somente leitura até aprovação do mestre.
           </div>
         )}
-        {messages.map((msg) => (
+        {rollDisplay && (
+          <div className={`bg-slate-900/60 border border-slate-800 rounded-xl p-4 ring-1 ${healthStyles.ring}`}>
+            <p className="text-xs text-slate-400">Resultado da rolagem</p>
+            <div className="mt-1 text-3xl font-bold text-slate-100">{rollDisplay.naturalRoll}</div>
+            <div className="text-sm text-purple-200">{rollDisplay.outcomeLabel}</div>
+          </div>
+        )}
+        {messages.map((msg) => {
+          if (msg.role === Role.SYSTEM && !msg.content && msg.type !== 'image') {
+            return null;
+          }
+          return (
           <div key={msg.id} className={`flex ${msg.role === Role.USER ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[90%] md:max-w-2xl rounded-2xl p-4 overflow-hidden ${
               msg.role === Role.USER 
-                ? 'bg-indigo-600 text-white rounded-br-none' 
+                ? 'bg-purple-600 text-white rounded-br-none' 
                 : msg.role === Role.SYSTEM && msg.type !== 'image'
                 ? 'bg-slate-800 text-slate-400 text-sm border border-slate-700 w-full md:w-auto text-center'
                 : 'bg-slate-900 text-slate-200 border border-slate-800 rounded-bl-none shadow-lg'
@@ -1474,15 +1607,16 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
               )}
             </div>
           </div>
-        ))}
+        );
+        })}
 
           {/* Loading Indicator */}
           {loading && (
           <div className="flex justify-start animate-in fade-in duration-300">
              <div className="bg-slate-900 p-4 rounded-2xl rounded-bl-none flex gap-2 items-center border border-slate-800">
-                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
-                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
-                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
              </div>
           </div>
         )}
@@ -1502,7 +1636,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       {/* Input Area */}
       {!deathState?.isDead && (
-        <div className="p-4 bg-slate-900 border-t border-slate-800 shrink-0">
+        <div className="sticky bottom-0 z-20 bg-slate-900 border-t border-slate-800 p-4 shrink-0">
           {turnState.active && (
             <div className="max-w-4xl mx-auto mb-2 text-xs text-slate-400">
               Jogador da vez: {turnState.orderNames[turnState.currentIndex] || 'Jogador'}
@@ -1512,8 +1646,10 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
             className="max-w-4xl mx-auto flex gap-2"
             onSubmit={(e) => { e.preventDefault(); handleSendMessage(input); }}
           >
-            <input
-              className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            <textarea
+              ref={inputRef}
+              rows={1}
+              className="flex-1 resize-none bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
               placeholder={
                 loading
                   ? "Narrando..."
@@ -1531,6 +1667,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
               }
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onInput={(e) => resizeInput(e.currentTarget)}
               disabled={loading || !!diceRequest || campaignStatus === CampaignStatus.ARCHIVED || campaignStatus === CampaignStatus.WAITING || campaignStatus === CampaignStatus.PAUSED || localPlayerStatus === 'pending' || localPlayerStatus === 'banned' || (turnState.active && userId !== turnState.order[turnState.currentIndex])}
               autoFocus
             />
@@ -1539,7 +1676,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
             </Button>
           </form>
           {turnState.active && userId === turnState.order[turnState.currentIndex] && turnRoll !== null && (
-            <div className="max-w-4xl mx-auto mt-2 text-xs text-indigo-300">
+            <div className="max-w-4xl mx-auto mt-2 text-xs text-purple-300">
               Rolagem registrada: {turnRoll}
             </div>
           )}
@@ -1577,7 +1714,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       )}
 
       {campaignStatus === CampaignStatus.WAITING && (
-        <div className="p-2 bg-indigo-950 text-center text-xs text-indigo-200 font-mono uppercase tracking-wider">
+        <div className="p-2 bg-purple-950 text-center text-xs text-purple-200 font-mono uppercase tracking-wider">
           Sala de espera - aguardando início
         </div>
       )}

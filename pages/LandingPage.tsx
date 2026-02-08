@@ -10,7 +10,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onHowItWorks 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
       <header className="p-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-indigo-500 tracking-tighter">MestrAi</h1>
+        <div className="flex items-center gap-2">
+          <img src="/favicon.png" alt="MestrAi" className="h-6 w-6" />
+          <h1 className="text-2xl font-bold text-purple-500 tracking-tighter">MestrAi</h1>
+        </div>
         <div className="flex gap-4">
            <button onClick={onHowItWorks} className="text-slate-400 hover:text-white transition-colors">Como Funciona</button>
            <Button variant="ghost" onClick={onLogin}>Entrar / Criar Conta</Button>
@@ -21,7 +24,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onHowItWorks 
         <div className="max-w-3xl space-y-8">
           <h2 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight">
             Sua imaginação, <br />
-            <span className="text-indigo-500 bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600">
+            <span className="text-purple-500 bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-purple-600">
               narrada por IA.
             </span>
           </h2>

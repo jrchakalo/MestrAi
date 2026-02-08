@@ -7,7 +7,7 @@ import { buildSystemPrompt } from '../../../lib/ai/systemPrompt';
 import { isRateLimited } from '../../../lib/ai/rateLimit';
 import { withModelFallback } from '../../../lib/ai/modelPool';
 import { Campaign, Message, Role } from '../../../types';
-import { createServerClient } from '../../../lib/supabase/server';
+import { createAdminClient, createServerClient } from '../../../lib/supabase/server';
 
 // shared rate limiter in lib/ai/rateLimit
 const STREAMING_ENABLED = false;
@@ -16,10 +16,32 @@ const requestRollSchema = {
   type: 'object',
   properties: {
     attribute: { type: 'string' },
-    difficulty_class: { type: 'number' },
-    description: { type: 'string' },
+    is_profession_relevant: { type: 'boolean' },
+    difficulty: { type: 'string', enum: ['NORMAL', 'HARD', 'VERY_HARD'] },
   },
-  required: ['attribute', 'difficulty_class', 'description'],
+  required: ['attribute', 'is_profession_relevant', 'difficulty'],
+};
+
+const applyDamageSchema = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: ['LIGHT', 'HEAVY'] },
+  },
+  required: ['type'],
+};
+
+const applyRestSchema = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: ['SHORT', 'LONG'] },
+  },
+  required: ['type'],
+};
+
+const triggerLevelUpSchema = {
+  type: 'object',
+  properties: {},
+  required: [],
 };
 
 const generateImageSchema = {
@@ -43,8 +65,18 @@ const updateCharacterSchema = {
   type: 'object',
   properties: {
     profession: { type: 'string' },
-    hp: { type: 'number' },
-    inventory: { type: 'array', items: { type: 'string' } },
+    inventory: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['consumable', 'equipment'] },
+          quantity: { type: 'number' },
+        },
+      },
+    },
   },
   required: [],
 };
@@ -181,7 +213,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ text: '[SISTEMA] Mesa em espera.', toolCalls: [] });
     }
 
-    const system = buildSystemPrompt(campaign);
+    const admin = createAdminClient();
+    let roster: Array<{ id: string; name: string }> = [];
+    if (admin) {
+      const { data: rosterRows } = await admin
+        .from('campaign_players')
+        .select('player_id, character_name')
+        .eq('campaign_id', campaign.id)
+        .eq('status', 'accepted');
+      roster = (rosterRows || []).map((row: any) => ({
+        id: row.player_id,
+        name: row.character_name || 'Jogador',
+      }));
+    }
+
+    const system = buildSystemPrompt(campaign)
+      .concat(
+        roster.length > 1
+          ? `\n\n## 8. Multiplayer POV\nJogadores ativos: ${roster.map((p) => p.name).join(', ')}.\n- Narre a mesma cena para todos, mas escreva um bloco de POV para cada jogador no formato:\n  "POV - <Nome>: ..."\n- As acoes de um jogador impactam o estado e as consequencias para os demais.\n- Mantenha coesao entre os POVs, evitando contradicoes.\n`
+          : ''
+      );
 
     const toChatMessage = (role: 'user' | 'assistant', content: string): ChatCompletionMessageParam => ({
       role,
@@ -199,6 +250,30 @@ export async function POST(req: Request) {
           name: 'request_roll',
           description: 'Request a dice roll from the player.',
           parameters: requestRollSchema as any,
+        },
+      },
+      {
+        type: 'function' as const,
+        function: {
+          name: 'apply_damage',
+          description: 'Apply light or heavy damage to the character.',
+          parameters: applyDamageSchema as any,
+        },
+      },
+      {
+        type: 'function' as const,
+        function: {
+          name: 'apply_rest',
+          description: 'Apply short or long rest recovery to the character.',
+          parameters: applyRestSchema as any,
+        },
+      },
+      {
+        type: 'function' as const,
+        function: {
+          name: 'trigger_levelup',
+          description: 'Trigger a rare level up event.',
+          parameters: triggerLevelUpSchema as any,
         },
       },
       {

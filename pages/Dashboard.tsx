@@ -24,20 +24,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="min-h-screen bg-slate-950 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        <header className="flex justify-between items-center">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Minhas Mesas</h1>
             <p className="text-slate-400">Gerencie suas campanhas de RPG.</p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={onCreateNew}>+ Nova Mesa</Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button onClick={onCreateNew} className="w-full sm:w-auto">+ Nova Mesa</Button>
             {onJoinById && (
-              <Button variant="secondary" onClick={() => {
+              <Button
+                variant="secondary"
+                className="w-full sm:w-auto"
+                onClick={() => {
                 const id = prompt('Cole o ID da campanha:');
                 if (id) onJoinById(id.trim());
-              }}>Entrar por ID</Button>
+              }}>
+                Entrar por ID
+              </Button>
             )}
-            <Button variant="outline" onClick={onLogout}>Sair</Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={onLogout}>Sair</Button>
           </div>
         </header>
 
@@ -54,7 +59,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 className={`border rounded-xl p-6 transition-colors cursor-pointer flex flex-col h-full relative overflow-hidden ${
                   camp.status === CampaignStatus.ARCHIVED 
                     ? 'bg-slate-900/50 border-slate-800 opacity-75 grayscale-[0.5] hover:opacity-100 hover:grayscale-0' 
-                    : 'bg-slate-900 border-slate-800 hover:border-indigo-500'
+                    : 'bg-slate-900 border-slate-800 hover:border-purple-500'
                 }`}
                 onClick={() => onSelectCampaign(camp.id)}
               >
@@ -65,8 +70,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 )}
                 
                 <div className="flex justify-between items-start mb-2 mt-1">
-                  <span className="text-xs font-mono uppercase text-indigo-400 bg-indigo-950 px-2 py-1 rounded">
-                    {camp.systemName}
+                  <span className="text-xs font-mono uppercase text-purple-400 bg-purple-950 px-2 py-1 rounded">
+                    {camp.genero}
                   </span>
                   {(onEditCampaign || onDeleteCampaign) && (
                     <div className="flex gap-1">
@@ -115,8 +120,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <p className="text-slate-400 text-sm mb-4 line-clamp-3 flex-1">{camp.worldHistory || camp.description}</p>
                 
                 <div className="mt-auto pt-4 border-t border-slate-800 flex justify-between items-center text-sm text-slate-500">
-                  <span className="truncate max-w-[60%]">{camp.genre}</span>
-                  <span className="text-indigo-400 group-hover:translate-x-1 transition-transform">
+                  <span className="truncate max-w-[60%]">{camp.tom}</span>
+                  <span className="text-purple-400 group-hover:translate-x-1 transition-transform">
                     {camp.status === CampaignStatus.ARCHIVED ? 'Ler Histórico' : 'Jogar'} &rarr;
                   </span>
                 </div>

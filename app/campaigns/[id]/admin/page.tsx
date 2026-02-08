@@ -292,7 +292,7 @@ export default function CampaignAdminPage() {
 
         <section className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-indigo-300">Pedidos para entrar</h3>
+            <h3 className="text-sm font-semibold text-purple-300">Pedidos para entrar</h3>
             <Button
               size="sm"
               variant="secondary"
@@ -400,7 +400,7 @@ export default function CampaignAdminPage() {
         </section>
 
         <section className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-emerald-300 mb-3">Jogadores aceitos</h3>
+          <h3 className="text-sm font-semibold text-purple-300 mb-3">Jogadores aceitos</h3>
           <div className="space-y-2">
             {acceptedPlayers.length === 0 && (
               <p className="text-xs text-slate-500">Nenhum jogador aceito.</p>

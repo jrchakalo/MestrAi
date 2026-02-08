@@ -1,5 +1,5 @@
 <div align="center">
-   <h1>MestrAi</h1>
+   <img src="./public/logomestrai.png" alt="MestrAi" />
    <p>
       <img src="https://img.shields.io/badge/Next.js-14-black" alt="Next.js" />
       <img src="https://img.shields.io/badge/React-18-61dafb" alt="React" />
@@ -11,13 +11,15 @@
 </div>
 
 ## Sobre
-MestrAi é um VTT (Virtual Tabletop) narrado por IA com suporte a multiplayer, turnos e geração de imagens. Cada jogador usa sua própria chave da IA, mantendo custos e controle individual.
+MestrAi é um VTT (Virtual Tabletop) narrado por IA com sistema narrativo deterministico, multiplayer, turnos e geração de imagens. Cada jogador usa sua própria chave da IA, mantendo custos e controle individual.
 
 ## Funcionalidades
 - Campanhas com criação guiada (mundo, estilo visual e personagem).
 - Multiplayer com aprovação de entrada e atualizações em tempo real.
-- Turnos baseados na Destreza (independente do sistema).
+- Turnos baseados em Destreza (sistema unificado).
 - Narrativa com IA e geração de imagens.
+- Sistema unificado com atributos VIGOR, DESTREZA, MENTE, PRESENCA.
+- Vida por tiers (Saudavel, Machucado, Critico) com regra de 3 golpes.
 - Persistência completa de mensagens e eventos.
 
 ## Stack

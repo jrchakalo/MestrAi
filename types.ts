@@ -25,8 +25,10 @@ export interface Campaign {
   
   // World Details
   worldHistory: string;
-  genre: string;
-  systemName: string;
+  genero: string;
+  tom: string;
+  magia: string;
+  tech: string;
   visualStyle: string;
   
   // Character Details
@@ -34,7 +36,7 @@ export interface Campaign {
   characterAppearance: string;
   characterBackstory: string;
   characterProfession?: string;
-  characterData?: Record<string, any>;
+  characterData?: CharacterSheet;
   avatarUrl?: string;
 
   status: CampaignStatus;
@@ -68,7 +70,37 @@ export interface Message {
 }
 
 export interface DiceRollRequest {
-  attribute: string;
-  difficulty_class: number;
-  description: string;
+  attribute: AttributeName;
+  is_profession_relevant: boolean;
+  difficulty: Difficulty;
+}
+
+export type Difficulty = "NORMAL" | "HARD" | "VERY_HARD";
+
+export type AttributeName = "VIGOR" | "DESTREZA" | "MENTE" | "PRESENÇA";
+export type HealthTier = "HEALTHY" | "INJURED" | "CRITICAL" | "DEAD";
+
+export interface CharacterSheet {
+  name: string;
+  appearance: string;
+  profession: string;
+  backstory: string;
+  attributes: {
+    VIGOR: number;
+    DESTREZA: number;
+    MENTE: number;
+    PRESENÇA: number;
+  };
+  health: {
+    tier: HealthTier;
+    lightDamageCounter: number;
+  };
+  inventory: InventoryItem[];
+}
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  type: "consumable" | "equipment";
+  quantity: number;
 }
