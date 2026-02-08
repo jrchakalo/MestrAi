@@ -63,6 +63,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const [startingCampaign, setStartingCampaign] = useState(false);
   const [rollDisplay, setRollDisplay] = useState<{ naturalRoll: number; outcomeLabel: string } | null>(null);
   const [healthDropPulse, setHealthDropPulse] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const HEALTH_LABELS: Record<HealthTier, string> = {
     HEALTHY: 'Saudavel',
@@ -231,6 +232,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           true
         ); 
       }
+      setHistoryLoaded(true);
     };
     initChat();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -465,6 +467,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   }, [campaign.id, campaign.ownerId, userId, auditFilter]);
 
   useEffect(() => {
+    if (!historyLoaded) return;
     if (campaignStatus === CampaignStatus.ACTIVE && !hasNarrativeMessages(messages) && !initSentRef.current) {
       initSentRef.current = true;
       handleSendMessage(
@@ -475,7 +478,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         true
       );
     }
-  }, [campaignStatus, messages.length]);
+  }, [campaignStatus, messages.length, historyLoaded]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -645,7 +648,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     await supabase.from('messages').insert({
       campaign_id: campaign.id,
       role: Role.SYSTEM,
-      content: `[SISTEMA] Iniciando rodada. Ordem de ação: ${orderNames.join(', ')}`,
+      content: '',
       metadata: {
         type: 'system',
         action: 'turn_start',
@@ -666,7 +669,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       await supabase.from('messages').insert({
         campaign_id: campaign.id,
         role: 'system',
-        content: `[SISTEMA] Próximo jogador na rodada.`,
+        content: '',
         metadata: {
           type: 'system',
           action: 'turn_advance',
@@ -680,7 +683,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     await supabase.from('messages').insert({
       campaign_id: campaign.id,
       role: 'system',
-      content: `[SISTEMA] Rodada encerrada.`,
+      content: '',
       metadata: {
         type: 'system',
         action: 'turn_end',
@@ -1466,11 +1469,25 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
                     </div>
                     <div className="bg-slate-900/60 border border-slate-800 rounded p-2">
                       <span className="text-xs text-slate-500">Inventario</span>
-                      <ul className="mt-1 text-slate-200 text-sm space-y-1">
+                      <ul className="mt-1 text-slate-200 text-sm space-y-2">
                         {sheet.inventory.length === 0 && <li>Vazio</li>}
                         {sheet.inventory.map((item) => (
-                          <li key={item.id}>
-                            {item.name} {item.quantity > 0 ? `x${item.quantity}` : ''}
+                          <li key={item.id} className="flex items-center justify-between gap-2">
+                            <span>
+                              {item.name} {item.quantity > 0 ? `x${item.quantity}` : ''}
+                            </span>
+                            {item.type === 'consumable' ? (
+                              <button
+                                type="button"
+                                className="text-xs text-purple-200 border border-purple-700/60 px-2 py-1 rounded hover:bg-purple-900/40"
+                                onClick={() => handleUseItem(item.id)}
+                                disabled={item.quantity <= 0}
+                              >
+                                Usar
+                              </button>
+                            ) : (
+                              <span className="text-[10px] uppercase text-slate-500">Equipamento</span>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -1513,64 +1530,18 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
             Você está em modo somente leitura até aprovação do mestre.
           </div>
         )}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center">
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase tracking-wide text-slate-400">Saude</span>
-                <span className={`text-xs font-semibold ${healthStyles.text}`}>{HEALTH_LABELS[sheet.health.tier]}</span>
-              </div>
-              <div className={`h-2 rounded-full ${healthStyles.bar} ${healthDropPulse ? 'animate-pulse' : ''}`} />
-              <div className="mt-2 flex items-center gap-2">
-                {[0, 1, 2].map((idx) => (
-                  <span
-                    key={`health-hud-dot-${idx}`}
-                    className={`h-2.5 w-2.5 rounded-full border border-slate-800 ${sheet.health.lightDamageCounter > idx ? 'bg-yellow-500' : 'bg-slate-700'}`}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase tracking-wide text-slate-400">Inventario</span>
-                <span className="text-[10px] text-slate-500">Clique para usar</span>
-              </div>
-              {sheet.inventory.length === 0 ? (
-                <p className="text-sm text-slate-500">Sem itens.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {sheet.inventory.map((item) => (
-                    <li key={item.id} className="flex items-center justify-between gap-2">
-                      <span className="text-sm text-slate-200">
-                        {item.name} {item.quantity > 0 ? `x${item.quantity}` : ''}
-                      </span>
-                      {item.type === 'consumable' ? (
-                        <button
-                          type="button"
-                          className="text-xs text-purple-200 border border-purple-700/60 px-2 py-1 rounded hover:bg-purple-900/40"
-                          onClick={() => handleUseItem(item.id)}
-                          disabled={item.quantity <= 0}
-                        >
-                          Usar
-                        </button>
-                      ) : (
-                        <span className="text-[10px] uppercase text-slate-500">Equipamento</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {rollDisplay && (
-              <div className={`flex-1 rounded-lg border border-slate-800 p-3 ring-1 ${healthStyles.ring}`}>
-                <p className="text-xs text-slate-400">Resultado da rolagem</p>
-                <div className="mt-1 text-3xl font-bold text-slate-100">{rollDisplay.naturalRoll}</div>
-                <div className="text-sm text-purple-200">{rollDisplay.outcomeLabel}</div>
-              </div>
-            )}
+        {rollDisplay && (
+          <div className={`bg-slate-900/60 border border-slate-800 rounded-xl p-4 ring-1 ${healthStyles.ring}`}>
+            <p className="text-xs text-slate-400">Resultado da rolagem</p>
+            <div className="mt-1 text-3xl font-bold text-slate-100">{rollDisplay.naturalRoll}</div>
+            <div className="text-sm text-purple-200">{rollDisplay.outcomeLabel}</div>
           </div>
-        </div>
-        {messages.map((msg) => (
+        )}
+        {messages.map((msg) => {
+          if (msg.role === Role.SYSTEM && !msg.content && msg.type !== 'image') {
+            return null;
+          }
+          return (
           <div key={msg.id} className={`flex ${msg.role === Role.USER ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[90%] md:max-w-2xl rounded-2xl p-4 overflow-hidden ${
               msg.role === Role.USER 
@@ -1636,7 +1607,8 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
               )}
             </div>
           </div>
-        ))}
+        );
+        })}
 
           {/* Loading Indicator */}
           {loading && (
