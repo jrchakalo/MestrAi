@@ -13,19 +13,15 @@ const bodySchema = z.object({
 function buildPrompt(type: string, payload: Record<string, any> = {}) {
   switch (type) {
     case 'suggestTitle':
-      return `Suggest a creative, catchy, and unique RPG campaign title for a game using the '${payload.system}' system. Language: Portuguese. Return ONLY the title, no quotes.`;
-    case 'suggestGenre':
-      return payload.title && payload.title.length > 3
-        ? `Based on the RPG campaign title "${payload.title}", suggest 1 to 3 suitable sub-genres/themes separated by commas. Language: Portuguese. Return ONLY the genres.`
-        : `Suggest a creative RPG sub-genre based on 'Dark Fantasy' but make it unique (max 4 words). Return ONLY the genre name.`;
+      return `Sugira um titulo criativo e memoravel para uma campanha de RPG com genero "${payload.genero}", tom "${payload.tom}", magia "${payload.magia}" e tecnologia "${payload.tech}". Idioma: Portugues. Retorne APENAS o titulo, sem aspas.`;
     case 'suggestWorldHistory':
-      return `Create a short, engaging World History premise (max 3 sentences) specifically for a campaign using the '${payload.system}' system in the '${payload.genre}' genre. Ensure the tone matches the system mechanics. Language: Portuguese.`;
+      return `Crie uma historia de mundo curta e envolvente (max 3 frases) para uma campanha de genero "${payload.genero}", tom "${payload.tom}", magia "${payload.magia}" e tecnologia "${payload.tech}". Idioma: Portugues.`;
     case 'suggestStyle':
-      return `Based on the World History and Genre below, suggest a concise 'visual_style' for an AI image generator (Stable Diffusion/Flux style). Genre: ${payload.genre}. System: ${payload.system}. World History: "${payload.worldHistory}". Response ONLY with the prompt string (e.g., "Dark Fantasy, Oil Painting, Gritty, High Contrast").`;
+      return `Com base na historia do mundo e nos pilares abaixo, sugira um "visual_style" conciso para gerador de imagens (Stable Diffusion/Flux). Genero: ${payload.genero}. Tom: ${payload.tom}. Magia: ${payload.magia}. Tecnologia: ${payload.tech}. Historia: "${payload.worldHistory}". Responda APENAS com o prompt.`;
     case 'suggestCharacterName':
-      return `Suggest a cool, unique character name fitting for a ${payload.genre} RPG setting using the ${payload.system} system. Return ONLY the name.`;
+      return `Sugira um nome unico para um personagem em um mundo ${payload.genero} com tom ${payload.tom}. Retorne APENAS o nome.`;
     case 'suggestCharacterAppearance':
-      return `Describe the physical appearance of a RPG character named "${payload.name}" in a ${payload.genre} setting. concise, visual, max 2 sentences. Language: Portuguese.`;
+      return `Descreva a aparencia fisica de um personagem chamado "${payload.name}" em um cenario ${payload.genero}. Seja conciso, visual, max 2 frases. Idioma: Portugues.`;
     case 'suggestCharacterBackstory':
       {
         const appearance = (payload.appearance || '').toString().trim();

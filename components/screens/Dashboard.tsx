@@ -69,7 +69,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="mt-6 flex justify-between items-center">
-                  <span className="text-xs text-slate-500">Sistema: {camp.systemName}</span>
+                  <span className="text-xs text-slate-500">{camp.genero || 'Genero indefinido'}</span>
                   <span className={`text-xs font-semibold ${
                     camp.status === CampaignStatus.ACTIVE ? 'text-green-400' :
                     camp.status === CampaignStatus.WAITING ? 'text-yellow-400' :

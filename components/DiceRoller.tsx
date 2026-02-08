@@ -31,6 +31,12 @@ export const DiceRoller: React.FC<DiceRollerProps> = ({ isOpen, request, onRollC
 
   if (!isOpen || !request) return null;
 
+  const difficultyLabel = {
+    NORMAL: 'Normal',
+    HARD: 'Dificil',
+    VERY_HARD: 'Muito Dificil',
+  }[request.difficulty] || 'Normal';
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -41,8 +47,8 @@ export const DiceRoller: React.FC<DiceRollerProps> = ({ isOpen, request, onRollC
           className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden"
         >
           <div className="p-6 text-center">
-            <h3 className="text-2xl font-bold text-purple-400 mb-2">Desafio de {request.attribute}</h3>
-            <p className="text-slate-400 mb-6">{request.description}</p>
+            <h3 className="text-2xl font-bold text-purple-400 mb-2">Teste de {request.attribute}</h3>
+            <p className="text-slate-400 mb-6">Dificuldade: {difficultyLabel}</p>
 
             <div className="flex justify-center mb-8">
               <motion.div

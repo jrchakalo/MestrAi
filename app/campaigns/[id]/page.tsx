@@ -5,7 +5,6 @@ import { GameSession } from '../../../pages/GameSession';
 import { Campaign, CampaignStatus } from '../../../types';
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase/client';
-import { normalizeSystemName } from '../../../constants';
 
 export default function CampaignSessionPage() {
   const router = useRouter();
@@ -34,7 +33,7 @@ export default function CampaignSessionPage() {
       const { data, error } = await supabase
         .from('campaign_players')
         .select(
-          'campaign_id, status, character_name, character_data_json, campaigns:campaigns(id,owner_id,title,description,genre,system_name,visual_style,world_bible_json,status,max_players,created_at)'
+          'campaign_id, status, character_name, character_data_json, campaigns:campaigns(id,owner_id,title,description,genero,tom,magia,tech,visual_style,world_bible_json,status,max_players,created_at)'
         )
         .eq('campaign_id', campaignId)
         .eq('player_id', userId)
@@ -46,16 +45,16 @@ export default function CampaignSessionPage() {
         const charData = data.character_data_json || {};
         setPlayerStatus(data.status || 'accepted');
 
-        const systemName = normalizeSystemName(camp.system_name || 'Narrativo');
-
         setCampaign({
           id: camp.id,
           ownerId: camp.owner_id,
           title: camp.title,
           description: camp.description || '',
           worldHistory,
-          genre: camp.genre || '',
-          systemName,
+          genero: camp.genero || '',
+          tom: camp.tom || '',
+          magia: camp.magia || '',
+          tech: camp.tech || '',
           visualStyle: camp.visual_style || '',
           characterName: data.character_name || '',
           characterAppearance: charData.appearance || '',
@@ -103,7 +102,10 @@ export default function CampaignSessionPage() {
             ...(apiKey ? { 'x-custom-api-key': apiKey } : {}),
           },
           body: JSON.stringify({
-            systemName: campaign.systemName,
+            genero: campaign.genero,
+            tom: campaign.tom,
+            magia: campaign.magia,
+            tech: campaign.tech,
             name: campaign.characterName,
             appearance: campaign.characterAppearance,
             backstory: campaign.characterBackstory,

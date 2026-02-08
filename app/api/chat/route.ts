@@ -16,10 +16,32 @@ const requestRollSchema = {
   type: 'object',
   properties: {
     attribute: { type: 'string' },
-    difficulty_class: { type: 'number' },
-    description: { type: 'string' },
+    is_profession_relevant: { type: 'boolean' },
+    difficulty: { type: 'string', enum: ['NORMAL', 'HARD', 'VERY_HARD'] },
   },
-  required: ['attribute', 'difficulty_class', 'description'],
+  required: ['attribute', 'is_profession_relevant', 'difficulty'],
+};
+
+const applyDamageSchema = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: ['LIGHT', 'HEAVY'] },
+  },
+  required: ['type'],
+};
+
+const applyRestSchema = {
+  type: 'object',
+  properties: {
+    type: { type: 'string', enum: ['SHORT', 'LONG'] },
+  },
+  required: ['type'],
+};
+
+const triggerLevelUpSchema = {
+  type: 'object',
+  properties: {},
+  required: [],
 };
 
 const generateImageSchema = {
@@ -43,8 +65,18 @@ const updateCharacterSchema = {
   type: 'object',
   properties: {
     profession: { type: 'string' },
-    hp: { type: 'number' },
-    inventory: { type: 'array', items: { type: 'string' } },
+    inventory: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['consumable', 'equipment'] },
+          quantity: { type: 'number' },
+        },
+      },
+    },
   },
   required: [],
 };
@@ -218,6 +250,30 @@ export async function POST(req: Request) {
           name: 'request_roll',
           description: 'Request a dice roll from the player.',
           parameters: requestRollSchema as any,
+        },
+      },
+      {
+        type: 'function' as const,
+        function: {
+          name: 'apply_damage',
+          description: 'Apply light or heavy damage to the character.',
+          parameters: applyDamageSchema as any,
+        },
+      },
+      {
+        type: 'function' as const,
+        function: {
+          name: 'apply_rest',
+          description: 'Apply short or long rest recovery to the character.',
+          parameters: applyRestSchema as any,
+        },
+      },
+      {
+        type: 'function' as const,
+        function: {
+          name: 'trigger_levelup',
+          description: 'Trigger a rare level up event.',
+          parameters: triggerLevelUpSchema as any,
         },
       },
       {

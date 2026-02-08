@@ -6,7 +6,6 @@ import { supabase } from '../../../../lib/supabase/client';
 import { Button } from '../../../../components/ui/Button';
 import { Input } from '../../../../components/ui/Input';
 import { LoadingDots } from '../../../../components/ui/LoadingDots';
-import { normalizeSystemName } from '../../../../constants';
 
 export default function JoinCampaignPage() {
   const router = useRouter();
@@ -84,8 +83,7 @@ export default function JoinCampaignPage() {
         setCampaign(null);
       } else {
         if (camp) {
-          const normalized = normalizeSystemName((camp as any).system_name);
-          setCampaign({ ...(camp as any), system_name: normalized });
+          setCampaign(camp as any);
         } else {
           setCampaign(null);
         }
@@ -112,15 +110,17 @@ export default function JoinCampaignPage() {
   };
 
   const handleGenName = async () => {
-    if (!campaign?.genre) {
+    if (!campaign?.genero) {
       alert('Gênero não disponível para sugestão.');
       return;
     }
     setGeneratingField('name');
     try {
       const text = await callSuggest('suggestCharacterName', {
-        genre: campaign.genre,
-        system: campaign.system_name,
+        genero: campaign.genero,
+        tom: campaign.tom,
+        magia: campaign.magia,
+        tech: campaign.tech,
       });
       setName(text.replace(/["]+/g, '').trim());
     } catch (e) {
@@ -137,7 +137,7 @@ export default function JoinCampaignPage() {
     setGeneratingField('appearance');
     try {
       const text = await callSuggest('suggestCharacterAppearance', {
-        genre: campaign?.genre || '',
+        genero: campaign?.genero || '',
         name: name.trim(),
       });
       setAppearance(text.trim());
@@ -313,7 +313,10 @@ export default function JoinCampaignPage() {
           ...(effectiveKey ? { 'x-custom-api-key': effectiveKey } : {}),
         },
         body: JSON.stringify({
-          systemName: campaign.system_name,
+          genero: campaign.genero,
+          tom: campaign.tom,
+          magia: campaign.magia,
+          tech: campaign.tech,
           name: name.trim(),
           appearance: appearance.trim(),
           backstory: backstory.trim(),
@@ -338,7 +341,7 @@ export default function JoinCampaignPage() {
       const warn = Array.isArray(data.warnings) ? data.warnings : [];
       setWarnings(warn);
 
-      if (!character?.attributes || !character?.class_or_role || character?.hp === undefined) {
+      if (!character?.attributes) {
         alert('Não foi possível concluir a criação da ficha após tentativas internas. Tente novamente.');
         return;
       }
@@ -399,7 +402,7 @@ export default function JoinCampaignPage() {
       <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-xl p-8 space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Entrar na Mesa</h1>
-          <p className="text-slate-400 text-sm">{campaign.title} • {campaign.system_name}</p>
+          <p className="text-slate-400 text-sm">{campaign.title} • {campaign.genero}</p>
         </div>
 
         <div className="bg-purple-900/20 border border-purple-700/50 p-4 rounded text-sm text-purple-200">
