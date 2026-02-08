@@ -10,7 +10,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onHowItWorks 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
       <header className="p-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-purple-500 tracking-tighter">MestrAi</h1>
+        <div className="flex items-center gap-2">
+          <img src="/favicon.png" alt="MestrAi" className="h-6 w-6" />
+          <h1 className="text-2xl font-bold text-purple-500 tracking-tighter">MestrAi</h1>
+        </div>
         <div className="flex gap-4">
            <button onClick={onHowItWorks} className="text-slate-400 hover:text-white transition-colors">Como Funciona</button>
            <Button variant="ghost" onClick={onLogin}>Entrar / Criar Conta</Button>
