@@ -44,25 +44,25 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
   });
 
   const GENERO_OPTIONS = [
-    'Fantasia Epica',
+    'Fantasia Épica',
     'Cyberpunk',
     'Terror Sobrenatural',
-    'Ficcao Cientifica',
-    'Pos-Apocaliptico',
-    'Investigacao Noir',
+    'Ficção Científica',
+    'Pos-Apocalíptico',
+    'Investigação Noir',
     'Velho Oeste',
-    'Super-Herois',
+    'Super-Heróis',
     'Isekai',
     'Steampunk',
     'Outro'
   ];
 
   const TOM_OPTIONS = [
-    'Heroico (Facil)',
-    'Aventura Padrao (Normal)',
-    'Sombrio (Dificil)',
-    'Terror Mortal (Muito Dificil)',
-    'Comedia',
+    'Comédia',
+    'Heroico (Fácil)',
+    'Aventura Padrão (Normal)',
+    'Sombrio (Difícil)',
+    'Terror Mortal (Muito Difícil)',
     'Outro'
   ];
 
@@ -70,7 +70,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
     'Mundano (Sem Magia)',
     'Baixa Fantasia (Rara/Perigosa)',
     'Alta Fantasia (Comum/Poderosa)',
-    'Divina/Mitica',
+    'Divina/Mítica',
     'Sombria/Corrupta',
     'Outro'
   ];
@@ -80,7 +80,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
     'Medieval/Arcaico',
     'Industrial/Steampunk',
     'Moderno (Sec. XXI)',
-    'Avancado/Sci-Fi',
+    'Avançado/Sci-Fi',
     'Retro-Futurista',
     'Outro'
   ];
@@ -89,36 +89,36 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
     string,
     { magicLabel: string; magicOptions: string[]; toneOptions: string[]; techLabel: string; techOptions: string[] }
   > = {
-    'Fantasia Epica': {
-      magicLabel: 'Nivel de Magia',
+    'Fantasia Épica': {
+      magicLabel: 'Nível de Magia',
       magicOptions: [
         'Baixa Fantasia (Rara/Perigosa)',
         'Alta Fantasia (Comum/Poderosa)',
-        'Divina/Mitica',
+        'Divina/Mítica',
         'Sombria/Corrupta',
         'Mundano (Sem Magia)',
         'Outro'
       ],
       toneOptions: [
+        'Comédia',
         'Heroico (Facil)',
-        'Aventura Padrao (Normal)',
-        'Sombrio (Dificil)',
-        'Terror Mortal (Muito Dificil)',
-        'Comedia',
+        'Aventura Padrão (Normal)',
+        'Sombrio (Difícil)',
+        'Terror Mortal (Muito Difícil)',
         'Outro'
       ],
-      techLabel: 'Nivel de Tecnologia',
+      techLabel: 'Nível de Tecnologia',
       techOptions: [
         'Primitivo/Idade da Pedra',
         'Medieval/Arcaico',
         'Industrial/Steampunk',
         'Moderno (Sec. XXI)',
-        'Avancado/Sci-Fi',
+        'Avançado/Sci-Fi',
         'Outro'
       ]
     },
     'Cyberpunk': {
-      magicLabel: 'Nivel de Implantes',
+      magicLabel: 'Nível de Implantes',
       magicOptions: [
         'Humanidade Pura',
         'Ciborgues Comuns',
@@ -132,7 +132,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Corporativo',
         'Rebelde',
         'Neon Noir',
-        'Gritty/Violento',
+        'Violento/Gritty',
         'Outro'
       ],
       techLabel: 'Infraestrutura Urbana',
@@ -141,82 +141,82 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Neon Corporativo',
         'Cidades Inteligentes',
         'Submundo Tech',
-        'Hipervigilancia',
+        'Hipervigilância',
         'Outro'
       ]
     },
     'Terror Sobrenatural': {
-      magicLabel: 'Manifestacao do Sobrenatural',
+      magicLabel: 'Manifestação do Sobrenatural',
       magicOptions: [
-        'Assombracoes Sutis',
+        'Assombrações Sutis',
         'Cultos e Rituais',
         'Entidades Antigas',
-        'Maldicoes Familiares',
-        'Portais e Demonios',
+        'Maldições Familiares',
+        'Portais e Demônios',
         'Outro'
       ],
       toneOptions: [
-        'Suspense Psicologico',
-        'Horror Cosmico',
+        'Suspense Psicológico',
+        'Horror Cósmico',
         'Gore Brutal',
         'Investigativo Sombrio',
-        'Desesperanca Total',
+        'Desesperança Total',
         'Outro'
       ],
-      techLabel: 'Nivel de Tecnologia',
+      techLabel: 'Nível de Tecnologia',
       techOptions: [
         'Rural/Isolado',
         'Urbano Moderno',
         'Industrial',
         'Pesquisa Secreta',
-        'Avancado/Sci-Fi',
+        'Avançado/Sci-Fi',
         'Outro'
       ]
     },
-    'Ficcao Cientifica': {
-      magicLabel: 'Base Cientifica',
+    'Ficção Científica': {
+      magicLabel: 'Base Científica',
       magicOptions: [
         'Hard Sci-Fi (Realista)',
         'Tecnologia Experimental',
-        'Fenomenos Cosmicos',
+        'Fenômenos Cósmicos',
         'Bioengenharia',
-        'IA Avancada',
+        'IA Avançada',
         'Outro'
       ],
       toneOptions: [
-        'Exploracao Espacial',
-        'Militar Tatico',
-        'Filosofico/Existencial',
-        'Aventura Cientifica',
+        'Exploração Espacial',
+        'Militar Tático',
+        'Filosófico/Existencial',
+        'Aventura Científica',
         'Distopia Fria',
         'Outro'
       ],
-      techLabel: 'Nivel de Tecnologia',
+      techLabel: 'Nível de Tecnologia',
       techOptions: [
         'Moderno (Sec. XXI)',
-        'Colonias Espaciais',
-        'Avancado/Sci-Fi',
+        'Colônias Espaciais',
+        'Avançado/Sci-Fi',
         'Nanotecnologia',
         'IA Onipresente',
         'Outro'
       ]
     },
-    'Pos-Apocaliptico': {
-      magicLabel: 'Ameaca Principal',
+    'Pós-Apocalíptico': {
+      magicLabel: 'Ameaça Principal',
       magicOptions: [
-        'Mutacoes e Radiacao',
+        'Mutações e Radiação',
         'Pandemia',
-        'Invasao Alienigena',
+        'Invasão Alienígena',
         'IA Rebelde',
-        'Colapso Climatico',
+        'Colapso Climático',
         'Outro'
       ],
       toneOptions: [
-        'Sobrevivencia Brutal',
-        'Reconstrucao Esperancosa',
-        'Road Trip Caotico',
+        'Sobrevivência Brutal',
+        'Reconstrução Esperançosa',
+        'Road Trip Caótico',
         'Tribal/Barbaro',
-        'Sombrio (Dificil)',
+        'Sombrio (Difícil)',
         'Outro'
       ],
       techLabel: 'Recursos e Tecnologia',
@@ -225,34 +225,34 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Baixa Tecnologia',
         'Restos Industriais',
         'Armas Improvisadas',
-        'Avancado Recuperado',
+        'Avançado Recuperado',
         'Outro'
       ]
     },
     'Investigacao Noir': {
-      magicLabel: 'Elemento Extraordinario',
+      magicLabel: 'Elemento Extraordinário',
       magicOptions: [
         'Sem Sobrenatural',
         'Ocultismo Urbano',
-        'Fetiches e Simbolos',
-        'Tecnologia de Vigilancia',
+        'Fetiches e Símbolos',
+        'Tecnologia de Vigilância',
         'Crime Organizado',
         'Outro'
       ],
       toneOptions: [
-        'Noir Classico',
+        'Noir Clássico',
         'Neo-Noir',
         'Investigativo Sombrio',
-        'Cinematografico',
+        'Cinematográfico',
         'Pessimista',
         'Outro'
       ],
-      techLabel: 'Nivel de Tecnologia',
+      techLabel: 'Nível de Tecnologia',
       techOptions: [
         'Retro/Anos 40',
         'Moderno (Sec. XXI)',
-        'Vigilancia Digital',
-        'Laboratorios Secretos',
+        'Vigilância Digital',
+        'Laboratórios Secretos',
         'Baixa Tecnologia',
         'Outro'
       ]
@@ -260,24 +260,24 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
     'Velho Oeste': {
       magicLabel: 'Mistura de Lendas',
       magicOptions: [
-        'Historico Realista',
-        'Faroeste Mistico',
-        'Xama/Folclore',
+        'Histórico Realista',
+        'Faroeste Místico',
+        'Xamã/Folclore',
         'Tecnologia Estranha',
         'Fronteira Assombrada',
         'Outro'
       ],
       toneOptions: [
+        'Comédia de Saiao',
         'Aventura de Fronteira',
         'Spaghetti Western',
-        'Sombrio (Dificil)',
-        'Comedia de Saiao',
-        'Revanche/Justica',
+        'Sombrio (Difícil)',
+        'Revanche/Justiça',
         'Outro'
       ],
-      techLabel: 'Nivel de Tecnologia',
+      techLabel: 'Nível de Tecnologia',
       techOptions: [
-        'Historico Realista',
+        'Histórico Realista',
         'Engenhocas a Vapor',
         'Armas Experimentais',
         'Baixa Tecnologia',
@@ -288,84 +288,84 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
     'Super-Herois': {
       magicLabel: 'Origem dos Poderes',
       magicOptions: [
-        'Mutacoes (X-Men)',
-        'Tecnologia (Homem de Ferro)',
-        'Mistico (Dr. Estranho)',
-        'Alienigena (Superman)',
-        'Cosmico (Lanterna Verde)',
+        'Mutações',
+        'Tecnologia',
+        'Místico',
+        'Alienígena',
+        'Cósmico',
         'Outro'
       ],
       toneOptions: [
-        'Era de Ouro (Leve)',
-        'Aventura Moderna',
+        'Juvenil (Leve/Esperançoso)',
+        'Era de Ouro (Clássico/Idealista)',
+        'Aventura Moderna (Dinâmico)',
         'The Boys (Brutal/Sangrento)',
         'Watchmen (Investigativo/Sombrio)',
-        'Juvenil/Equipe',
         'Outro'
       ],
-      techLabel: 'Nivel de Tecnologia',
+      techLabel: 'Nível de Tecnologia',
       techOptions: [
         'Moderno (Sec. XXI)',
         'Alta Tecnologia Secreta',
-        'Alienigena',
+        'Alienígena',
         'Corp Tech',
-        'Avancado/Sci-Fi',
+        'Avançado/Sci-Fi',
         'Outro'
       ]
     },
     'Isekai': {
       magicLabel: 'Sistema de Poder',
       magicOptions: [
-        'Magia Classica',
+        'Sem Poder (Sobrevivência)',
+        'Magia Clássica',
         'Status/RPG',
         'Contrato com Deus',
-        'Ciencia Mistica',
-        'Sem Poder (Sobrevivencia)',
+        'Ciência Mística',
         'Outro'
       ],
       toneOptions: [
-        'Power Fantasy',
-        'Comedia/Parodia',
-        'Aventura de Guilda',
-        'Sombrio (Dificil)',
         'Slice of Life',
+        'Comédia/Paródia',
+        'Power Fantasy',
+        'Aventura de Guilda',
+        'Sombrio (Difícil)',
         'Outro'
       ],
-      techLabel: 'Nivel de Tecnologia',
+      techLabel: 'Nível de Tecnologia',
       techOptions: [
         'Medieval/Arcaico',
         'Renascimento',
-        'Magitec Basico',
-        'Magitec Avancado',
+        'Magitec Básico',
+        'Magitec Avançado',
         'Tecnologia Fora do Mundo',
         'Outro'
       ]
     },
     'Steampunk': {
-      magicLabel: 'Nivel de Eter/Vapor',
+      magicLabel: 'Nível de Éter/Vapor',
       magicOptions: [
         'Engenharia Pura',
-        'Eter Alquimico',
-        'Mecanica Arcana',
-        'Automatos Conscientes',
-        'Armas Exoticas',
+        'Éter Alquímico',
+        'Mecânica Arcana',
+        'Autômatos Conscientes',
+        'Armas Exóticas',
         'Outro'
       ],
       toneOptions: [
+        'Exploração',
         'Aventura Vitoriana',
-        'Revolucao Industrial',
+        'Revolução Industrial',
         'Espionagem',
-        'Sombrio (Dificil)',
-        'Exploracao',
+        'Sombrio (Difícil)',
         'Outro'
       ],
-      techLabel: 'Nivel de Tecnologia',
+      techLabel: 'Nível de Tecnologia',
       techOptions: [
         'Industrial/Steampunk',
         'Retro-Futurista',
-        'Automatos Avancados',
+        'Autômatos Avançados',
         'Engrenagens Gigantes',
-        'Vapor e Eter',
+        'Vapor e Éter',
         'Outro'
       ]
     }
@@ -374,8 +374,8 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
   const [availableToneOptions, setAvailableToneOptions] = useState<string[]>(TOM_OPTIONS);
   const [availableMagicOptions, setAvailableMagicOptions] = useState<string[]>(MAGIA_OPTIONS);
   const [availableTechOptions, setAvailableTechOptions] = useState<string[]>(TECH_OPTIONS);
-  const [magicLabel, setMagicLabel] = useState('Nivel de Magia');
-  const [techLabel, setTechLabel] = useState('Nivel de Tecnologia');
+  const [magicLabel, setMagicLabel] = useState('Nível de Magia');
+  const [techLabel, setTechLabel] = useState('Nível de Tecnologia');
 
   useEffect(() => {
     const selectedGenre = generoOption !== 'Outro' ? generoOption : '';
@@ -391,8 +391,8 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
       setAvailableToneOptions(TOM_OPTIONS);
       setAvailableMagicOptions(MAGIA_OPTIONS);
       setAvailableTechOptions(TECH_OPTIONS);
-      setMagicLabel('Nivel de Magia');
-      setTechLabel('Nivel de Tecnologia');
+      setMagicLabel('Nível de Magia');
+      setTechLabel('Nível de Tecnologia');
     }
 
     setTomOption('');
@@ -472,7 +472,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
   };
 
   const handleGenName = async () => {
-    if (!formData.genero) { alert('Preencha o Genero no passo anterior.'); return; }
+    if (!formData.genero) { alert('Preencha o Gênero no passo anterior.'); return; }
     setGeneratingField('name');
     try {
       const name = await callSuggest('suggestCharacterName', { genero: formData.genero });
