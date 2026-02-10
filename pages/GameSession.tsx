@@ -8,6 +8,7 @@ import { Input } from '../components/ui/Input';
 import { supabase } from '../lib/supabaseClient';
 import { Toast } from '../components/ui/Toast';
 import { calculateRoll, applyDamage, applyRest } from '../lib/gameRules';
+import { useTypewriter } from '../hooks/useTypewriter';
 
 interface GameSessionProps {
   campaign: Campaign;
@@ -21,6 +22,23 @@ interface DeathState {
   cause: string;
   future: string;
 }
+
+interface TypewriterMarkdownProps {
+  text: string;
+  onDone?: () => void;
+  onTick?: () => void;
+}
+
+const TypewriterMarkdown: React.FC<TypewriterMarkdownProps> = ({ text, onDone, onTick }) => {
+  const typed = useTypewriter(text, { enabled: true, speedMs: 15, onDone, onTick });
+  return (
+    <div className="prose prose-invert prose-sm md:prose-base leading-relaxed break-words">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {typed}
+      </ReactMarkdown>
+    </div>
+  );
+};
 
 export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: initialApiKey, playerStatus = 'accepted', onExit }) => {
   const STREAMING_ENABLED = false;
@@ -64,6 +82,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const [rollDisplay, setRollDisplay] = useState<{ naturalRoll: number; outcomeLabel: string } | null>(null);
   const [healthDropPulse, setHealthDropPulse] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [typewriterMessageId, setTypewriterMessageId] = useState<string | null>(null);
 
   const HEALTH_LABELS: Record<HealthTier, string> = {
     HEALTHY: 'Saudavel',
@@ -85,6 +104,8 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const pendingMessagesRef = useRef<Message[] | null>(null);
   const initSentRef = useRef(false);
   const prevStatusRef = useRef<CampaignStatus | null>(null);
+  const isAtBottomRef = useRef(true);
+  const lastMessageIdRef = useRef<string | null>(null);
 
   const getImageUrl = (msg: Message) => imageOverrides[msg.id] || msg.metadata?.imageUrl || '';
 
@@ -179,6 +200,17 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     el.style.height = `${next}px`;
   };
 
+  const scrollToBottom = () => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  };
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    isAtBottomRef.current = scrollHeight - scrollTop - clientHeight < 48;
+  };
+
   // --- Initialization ---
   useEffect(() => {
     const initChat = async () => {
@@ -237,6 +269,10 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     initChat();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign.id, apiKey]);
+
+  useEffect(() => {
+    setToast({ msg: `Bem-vindo a ${campaign.title}`, type: 'success' });
+  }, [campaign.title]);
 
   useEffect(() => {
     if (campaignStatus !== CampaignStatus.ACTIVE) return;
@@ -481,10 +517,22 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   }, [campaignStatus, messages.length, historyLoaded]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (isAtBottomRef.current) {
+      scrollToBottom();
     }
   }, [messages, campaign.id]);
+
+  useEffect(() => {
+    if (!historyLoaded || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (lastMessageIdRef.current === last.id) return;
+    lastMessageIdRef.current = last.id;
+    if (last.role === Role.MODEL && last.content && last.type !== 'image') {
+      setTypewriterMessageId(last.id);
+    } else {
+      setTypewriterMessageId(null);
+    }
+  }, [messages, historyLoaded]);
 
   useEffect(() => {
     resizeInput(inputRef.current);
@@ -507,9 +555,6 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       const status = data?.status || 'pending';
       setLocalPlayerStatus(status);
-      if (status === 'accepted') {
-        setToast({ msg: 'Você foi aprovado na mesa!', type: 'success' });
-      }
       if (status === 'banned') {
         setToast({ msg: 'Você foi banido desta mesa.', type: 'error' });
       }
@@ -531,7 +576,12 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         { event: '*', schema: 'public', table: 'campaign_players', filter: `campaign_id=eq.${campaign.id}` },
         (payload) => {
           const row: any = payload.new;
-          if (row?.player_id === userId) refreshStatus();
+          if (row?.player_id !== userId) return;
+          const oldRecord: any = payload.old || {};
+          if (oldRecord.status === 'pending' && row.status === 'accepted') {
+            setToast({ msg: 'Você foi aprovado na mesa!', type: 'success' });
+          }
+          refreshStatus();
         }
       )
       .subscribe();
@@ -1512,7 +1562,11 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       )}
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth" ref={scrollRef}>
+      <div
+        className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth"
+        ref={scrollRef}
+        onScroll={handleScroll}
+      >
         {motd && (
           <div className="bg-purple-900/20 border border-purple-700/50 rounded-xl p-4 text-sm text-purple-200">
             <p className="font-semibold mb-1">Mensagem do Mestre</p>
@@ -1599,11 +1653,22 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
               
               {/* Text Rendering with Markdown */}
               {msg.content && (
-                <div className="prose prose-invert prose-sm md:prose-base leading-relaxed break-words">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {msg.content}
-                  </ReactMarkdown>
-                </div>
+                msg.id === typewriterMessageId ? (
+                  <TypewriterMarkdown
+                    text={msg.content}
+                    onTick={() => {
+                      if (isAtBottomRef.current) {
+                        scrollToBottom();
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="prose prose-invert prose-sm md:prose-base leading-relaxed break-words">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
+                )
               )}
             </div>
           </div>
