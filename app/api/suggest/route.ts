@@ -17,7 +17,7 @@ function buildPrompt(type: string, payload: Record<string, any> = {}) {
     case 'suggestWorldHistory':
       return `Crie uma historia de mundo curta e envolvente (max 3 frases) para uma campanha de genero "${payload.genero}", tom "${payload.tom}", magia "${payload.magia}" e tecnologia "${payload.tech}". Idioma: Portugues.`;
     case 'suggestStyle':
-      return `Com base na historia do mundo e nos pilares abaixo, sugira um "visual_style" conciso para gerador de imagens (Stable Diffusion/Flux). Genero: ${payload.genero}. Tom: ${payload.tom}. Magia: ${payload.magia}. Tecnologia: ${payload.tech}. Historia: "${payload.worldHistory}". Responda APENAS com o prompt.`;
+      return `Com base na historia do mundo e nos pilares abaixo, gere APENAS palavras-chave de estilo visual (nao descreva personagens, cenas ou objetos). Foque em tecnica, atmosfera, paleta de cores, midia e referencias estilisticas. Retorne uma lista separada por virgulas, com 6 a 12 itens, sem frases completas. Genero: ${payload.genero}. Tom: ${payload.tom}. Magia: ${payload.magia}. Tecnologia: ${payload.tech}. Historia: "${payload.worldHistory}".`;
     case 'suggestCharacterName':
       return `Sugira um nome unico para um personagem em um mundo ${payload.genero} com tom ${payload.tom}. Retorne APENAS o nome.`;
     case 'suggestCharacterAppearance':
