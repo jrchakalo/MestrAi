@@ -203,7 +203,8 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
   const scrollToBottom = () => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const { scrollHeight } = scrollRef.current;
+    scrollRef.current.scrollTo({ top: scrollHeight, behavior: 'auto' });
   };
 
   const handleScroll = () => {
@@ -526,9 +527,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   }, [campaignStatus, messages.length, historyLoaded]);
 
   useEffect(() => {
-    if (isAtBottomRef.current) {
-      scrollToBottom();
-    }
+    scrollToBottom();
   }, [messages, campaign.id]);
 
   useEffect(() => {
@@ -538,6 +537,10 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     isAtBottomRef.current = true;
     initialScrollDoneRef.current = true;
   }, [historyLoaded, messages.length]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [loading]);
 
   useEffect(() => {
     if (!historyLoaded || messages.length === 0) return;
@@ -1586,7 +1589,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       {/* Chat Area */}
       <div
-        className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth"
+        className="flex-1 overflow-y-auto p-4 space-y-6 scroll-auto"
         ref={scrollRef}
         onScroll={handleScroll}
       >
