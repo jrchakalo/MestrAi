@@ -334,7 +334,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
       techLabel: 'Nível de Tecnologia',
       techOptions: [
         'Medieval/Arcaico',
-        'Renascimento',
+        'Tecnologia Seculo XXI',
         'Magitec Básico',
         'Magitec Avançado',
         'Tecnologia Fora do Mundo',
@@ -599,7 +599,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium text-slate-300 mb-1 block">Genero Principal</label>
+          <label className="text-sm font-medium text-slate-300 mb-1 block">Gênero Principal</label>
           <select
             className="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-slate-100 focus:ring-2 focus:ring-purple-500"
             value={generoOption}
@@ -622,14 +622,14 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
           {generoOption === 'Outro' && (
             <div className="mt-2">
               <Input
-                label="Outro Genero"
+                label="Outro Gênero"
                 required
                 value={generoOther}
                 onChange={e => {
                   setGeneroOther(e.target.value);
                   setFormData(prev => ({ ...prev, genero: e.target.value }));
                 }}
-                placeholder="Digite o genero"
+                placeholder="Digite o gênero"
               />
             </div>
           )}
