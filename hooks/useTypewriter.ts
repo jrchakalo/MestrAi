@@ -13,6 +13,13 @@ export const useTypewriter = (
 ) => {
   const [display, setDisplay] = useState(enabled ? '' : text);
   const indexRef = useRef(0);
+  const onDoneRef = useRef(onDone);
+  const onTickRef = useRef(onTick);
+
+  useEffect(() => {
+    onDoneRef.current = onDone;
+    onTickRef.current = onTick;
+  }, [onDone, onTick]);
 
   useEffect(() => {
     if (!enabled) {
@@ -22,7 +29,7 @@ export const useTypewriter = (
 
     if (!text) {
       setDisplay('');
-      onDone?.();
+      onDoneRef.current?.();
       return;
     }
 
@@ -35,9 +42,9 @@ export const useTypewriter = (
       if (cancelled) return;
       indexRef.current += 1;
       setDisplay(text.slice(0, indexRef.current));
-      onTick?.();
+      onTickRef.current?.();
       if (indexRef.current >= text.length) {
-        onDone?.();
+        onDoneRef.current?.();
         return;
       }
       timer = window.setTimeout(step, speedMs);
@@ -49,7 +56,7 @@ export const useTypewriter = (
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [text, enabled, speedMs, onDone, onTick]);
+  }, [text, enabled, speedMs]);
 
   return display;
 };

@@ -30,7 +30,7 @@ interface TypewriterMarkdownProps {
 }
 
 const TypewriterMarkdown: React.FC<TypewriterMarkdownProps> = ({ text, onDone, onTick }) => {
-  const typed = useTypewriter(text, { enabled: true, speedMs: 15, onDone, onTick });
+  const typed = useTypewriter(text, { enabled: true, speedMs: 10, onDone, onTick });
   return (
     <div className="prose prose-invert prose-sm md:prose-base leading-relaxed break-words">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -105,7 +105,8 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const initSentRef = useRef(false);
   const prevStatusRef = useRef<CampaignStatus | null>(null);
   const isAtBottomRef = useRef(true);
-  const lastMessageIdRef = useRef<string | null>(null);
+  const lastTypedMessageIdRef = useRef<string | null>(null);
+  const initialScrollDoneRef = useRef(false);
 
   const getImageUrl = (msg: Message) => imageOverrides[msg.id] || msg.metadata?.imageUrl || '';
 
@@ -247,6 +248,14 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       if (initialHistory.length > 0) setMessages(initialHistory);
       if (initialHistory.length > 0) rebuildTurnState(initialHistory);
+
+      if (initialHistory.length > 0) {
+        const lastModel = [...initialHistory]
+          .reverse()
+          .find((msg) => msg.role === Role.MODEL && msg.content && msg.type !== 'image');
+        lastTypedMessageIdRef.current = lastModel?.id || null;
+        setTypewriterMessageId(null);
+      }
 
       const deathMsg = initialHistory.find(m => m.type === 'death_event');
       if (deathMsg) {
@@ -524,15 +533,29 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
   useEffect(() => {
     if (!historyLoaded || messages.length === 0) return;
-    const last = messages[messages.length - 1];
-    if (lastMessageIdRef.current === last.id) return;
-    lastMessageIdRef.current = last.id;
-    if (last.role === Role.MODEL && last.content && last.type !== 'image') {
-      setTypewriterMessageId(last.id);
-    } else {
+    if (initialScrollDoneRef.current) return;
+    scrollToBottom();
+    isAtBottomRef.current = true;
+    initialScrollDoneRef.current = true;
+  }, [historyLoaded, messages.length]);
+
+  useEffect(() => {
+    if (!historyLoaded || messages.length === 0) return;
+    const lastModel = [...messages]
+      .reverse()
+      .find((msg) => msg.role === Role.MODEL && msg.content && msg.type !== 'image');
+
+    if (!lastModel) {
       setTypewriterMessageId(null);
+      lastTypedMessageIdRef.current = null;
+      return;
     }
+
+    if (lastTypedMessageIdRef.current === lastModel.id) return;
+    lastTypedMessageIdRef.current = lastModel.id;
+    setTypewriterMessageId(lastModel.id);
   }, [messages, historyLoaded]);
+
 
   useEffect(() => {
     resizeInput(inputRef.current);
@@ -1657,9 +1680,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
                   <TypewriterMarkdown
                     text={msg.content}
                     onTick={() => {
-                      if (isAtBottomRef.current) {
-                        scrollToBottom();
-                      }
+                      requestAnimationFrame(scrollToBottom);
                     }}
                   />
                 ) : (
