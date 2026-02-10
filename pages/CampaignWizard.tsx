@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { LoadingDots } from '../components/ui/LoadingDots';
@@ -74,6 +74,224 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
     'Sombria/Corrupta',
     'Outro'
   ];
+
+  const GENRE_SETTINGS: Record<string, { magicLabel: string; magicOptions: string[]; toneOptions: string[] }> = {
+    'Fantasia Epica': {
+      magicLabel: 'Nivel de Magia',
+      magicOptions: [
+        'Baixa Fantasia (Rara/Perigosa)',
+        'Alta Fantasia (Comum/Poderosa)',
+        'Divina/Mitica',
+        'Sombria/Corrupta',
+        'Mundano (Sem Magia)',
+        'Outro'
+      ],
+      toneOptions: [
+        'Heroico (Facil)',
+        'Aventura Padrao (Normal)',
+        'Sombrio (Dificil)',
+        'Terror Mortal (Muito Dificil)',
+        'Comedia',
+        'Outro'
+      ]
+    },
+    'Cyberpunk': {
+      magicLabel: 'Nivel de Implantes',
+      magicOptions: [
+        'Humanidade Pura',
+        'Ciborgues Comuns',
+        'Transhumanismo Total',
+        'Mercado Negro/Experimental',
+        'IA Integrada',
+        'Outro'
+      ],
+      toneOptions: [
+        'High Tech Low Life',
+        'Corporativo',
+        'Rebelde',
+        'Neon Noir',
+        'Gritty/Violento',
+        'Outro'
+      ]
+    },
+    'Terror Sobrenatural': {
+      magicLabel: 'Manifestacao do Sobrenatural',
+      magicOptions: [
+        'Assombracoes Sutis',
+        'Cultos e Rituais',
+        'Entidades Antigas',
+        'Maldicoes Familiares',
+        'Portais e Demonios',
+        'Outro'
+      ],
+      toneOptions: [
+        'Suspense Psicologico',
+        'Horror Cosmico',
+        'Gore Brutal',
+        'Investigativo Sombrio',
+        'Desesperanca Total',
+        'Outro'
+      ]
+    },
+    'Ficcao Cientifica': {
+      magicLabel: 'Base Cientifica',
+      magicOptions: [
+        'Hard Sci-Fi (Realista)',
+        'Tecnologia Experimental',
+        'Fenomenos Cosmicos',
+        'Bioengenharia',
+        'IA Avancada',
+        'Outro'
+      ],
+      toneOptions: [
+        'Exploracao Espacial',
+        'Militar Tatico',
+        'Filosofico/Existencial',
+        'Aventura Cientifica',
+        'Distopia Fria',
+        'Outro'
+      ]
+    },
+    'Pos-Apocaliptico': {
+      magicLabel: 'Ameaca Principal',
+      magicOptions: [
+        'Mutacoes e Radiacao',
+        'Pandemia',
+        'Invasao Alienigena',
+        'IA Rebelde',
+        'Colapso Climatico',
+        'Outro'
+      ],
+      toneOptions: [
+        'Sobrevivencia Brutal',
+        'Reconstrucao Esperancosa',
+        'Road Trip Caotico',
+        'Tribal/Barbaro',
+        'Sombrio (Dificil)',
+        'Outro'
+      ]
+    },
+    'Investigacao Noir': {
+      magicLabel: 'Elemento Extraordinario',
+      magicOptions: [
+        'Sem Sobrenatural',
+        'Ocultismo Urbano',
+        'Fetiches e Simbolos',
+        'Tecnologia de Vigilancia',
+        'Crime Organizado',
+        'Outro'
+      ],
+      toneOptions: [
+        'Noir Classico',
+        'Neo-Noir',
+        'Investigativo Sombrio',
+        'Cinematografico',
+        'Pessimista',
+        'Outro'
+      ]
+    },
+    'Velho Oeste': {
+      magicLabel: 'Mistura de Lendas',
+      magicOptions: [
+        'Historico Realista',
+        'Faroeste Mistico',
+        'Xama/Folclore',
+        'Tecnologia Estranha',
+        'Fronteira Assombrada',
+        'Outro'
+      ],
+      toneOptions: [
+        'Aventura de Fronteira',
+        'Spaghetti Western',
+        'Sombrio (Dificil)',
+        'Comedia de Saiao',
+        'Revanche/Justica',
+        'Outro'
+      ]
+    },
+    'Super-Herois': {
+      magicLabel: 'Origem dos Poderes',
+      magicOptions: [
+        'Mutacoes (X-Men)',
+        'Tecnologia (Homem de Ferro)',
+        'Mistico (Dr. Estranho)',
+        'Alienigena (Superman)',
+        'Cosmico (Lanterna Verde)',
+        'Outro'
+      ],
+      toneOptions: [
+        'Era de Ouro (Leve)',
+        'Aventura Moderna',
+        'The Boys (Brutal/Sangrento)',
+        'Watchmen (Investigativo/Sombrio)',
+        'Juvenil/Equipe',
+        'Outro'
+      ]
+    },
+    'Isekai': {
+      magicLabel: 'Sistema de Poder',
+      magicOptions: [
+        'Magia Classica',
+        'Status/RPG',
+        'Contrato com Deus',
+        'Ciencia Mistica',
+        'Sem Poder (Sobrevivencia)',
+        'Outro'
+      ],
+      toneOptions: [
+        'Power Fantasy',
+        'Comedia/Parodia',
+        'Aventura de Guilda',
+        'Sombrio (Dificil)',
+        'Slice of Life',
+        'Outro'
+      ]
+    },
+    'Steampunk': {
+      magicLabel: 'Nivel de Eter/Vapor',
+      magicOptions: [
+        'Engenharia Pura',
+        'Eter Alquimico',
+        'Mecanica Arcana',
+        'Automatos Conscientes',
+        'Armas Exoticas',
+        'Outro'
+      ],
+      toneOptions: [
+        'Aventura Vitoriana',
+        'Revolucao Industrial',
+        'Espionagem',
+        'Sombrio (Dificil)',
+        'Exploracao',
+        'Outro'
+      ]
+    }
+  };
+
+  const [availableToneOptions, setAvailableToneOptions] = useState<string[]>(TOM_OPTIONS);
+  const [availableMagicOptions, setAvailableMagicOptions] = useState<string[]>(MAGIA_OPTIONS);
+  const [magicLabel, setMagicLabel] = useState('Nivel de Magia');
+
+  useEffect(() => {
+    const selectedGenre = generoOption !== 'Outro' ? generoOption : '';
+    const settings = selectedGenre ? GENRE_SETTINGS[selectedGenre] : undefined;
+
+    if (settings) {
+      setAvailableToneOptions(settings.toneOptions);
+      setAvailableMagicOptions(settings.magicOptions);
+      setMagicLabel(settings.magicLabel);
+    } else {
+      setAvailableToneOptions(TOM_OPTIONS);
+      setAvailableMagicOptions(MAGIA_OPTIONS);
+      setMagicLabel('Nivel de Magia');
+    }
+
+    setTomOption('');
+    setTomOther('');
+    setMagiaOption('');
+    setMagiaOther('');
+    setFormData(prev => ({ ...prev, tom: '', magia: '' }));
+  }, [generoOption]);
 
   const TECH_OPTIONS = [
     'Primitivo/Idade da Pedra',
@@ -333,7 +551,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
             }}
           >
             <option value="">Selecione</option>
-            {TOM_OPTIONS.map((option) => (
+            {availableToneOptions.map((option) => (
               <option key={option} value={option}>{option}</option>
             ))}
           </select>
@@ -354,7 +572,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         </div>
 
         <div>
-          <label className="text-sm font-medium text-slate-300 mb-1 block">Nivel de Magia</label>
+          <label className="text-sm font-medium text-slate-300 mb-1 block">{magicLabel}</label>
           <select
             className="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-slate-100 focus:ring-2 focus:ring-purple-500"
             value={magiaOption}
@@ -370,21 +588,21 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
             }}
           >
             <option value="">Selecione</option>
-            {MAGIA_OPTIONS.map((option) => (
+            {availableMagicOptions.map((option) => (
               <option key={option} value={option}>{option}</option>
             ))}
           </select>
           {magiaOption === 'Outro' && (
             <div className="mt-2">
               <Input
-                label="Outro Nivel de Magia"
+                label={`Outro ${magicLabel}`}
                 required
                 value={magiaOther}
                 onChange={e => {
                   setMagiaOther(e.target.value);
                   setFormData(prev => ({ ...prev, magia: e.target.value }));
                 }}
-                placeholder="Descreva o nivel de magia"
+                placeholder="Descreva o nivel"
               />
             </div>
           )}
