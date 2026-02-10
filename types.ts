@@ -66,6 +66,8 @@ export interface Message {
     roll?: number | null;
     reason?: string | null;
     dex_key?: string;
+    sourceCallId?: string;
+    prompt?: string;
   };
 }
 
