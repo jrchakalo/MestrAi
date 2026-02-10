@@ -452,6 +452,103 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
     setGeneratingField(null);
   };
 
+  const formatStyleKeywords = (text: string) => {
+    const cleaned = text
+      .replace(/["*]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const styleHints = [
+      'estilo',
+      'style',
+      'inspirado',
+      'inspirada',
+      'arte',
+      'ilustr',
+      'pintura',
+      'aquarela',
+      'oleo',
+      'óleo',
+      'noir',
+      'monocrom',
+      'preto e branco',
+      'paleta',
+      'cores',
+      'cinematograf',
+      'fotograf',
+      'textura',
+      'granulado',
+      'dark',
+      'brutal',
+      'vintage',
+      'retro',
+      'realista',
+      'surreal',
+      'anime',
+      'manga',
+      'mangá',
+      'pixel',
+      'low poly',
+      '3d'
+    ];
+
+    const subjectHints = [
+      'jovem',
+      'personagem',
+      'caminha',
+      'segura',
+      'livro',
+      'olhar',
+      'roupas',
+      'estrada',
+      'casas',
+      'paisagem',
+      'cercado'
+    ];
+
+    const rawSegments = cleaned
+      .split(/[.!?;:\n]+/)
+      .map(part => part.trim())
+      .filter(Boolean);
+
+    const styleSegments = rawSegments.filter(segment => {
+      const lower = segment.toLowerCase();
+      return styleHints.some(hint => lower.includes(hint));
+    });
+
+    const fallbackSegments = rawSegments.filter(segment => {
+      const lower = segment.toLowerCase();
+      return !subjectHints.some(hint => lower.includes(hint));
+    });
+
+    const segmentsToUse = styleSegments.length > 0
+      ? styleSegments
+      : (fallbackSegments.length > 0 ? fallbackSegments.slice(-2) : rawSegments.slice(-2));
+
+    const parts = segmentsToUse
+      .join(', ')
+      .split(/[,]+/)
+      .map(part => part.trim())
+      .filter(Boolean)
+      .map(part => part
+        .replace(/^(em|no|na|nos|nas|um|uma|o|a|os|as|de|do|da|dos|das|com)\s+/i, '')
+        .replace(/^(estilo|estilo de arte|arte|inspirado em|inspirada em|inspirado|inspirada)\s+/i, '')
+        .replace(/\s+que\s+/i, ' ')
+        .trim()
+      )
+      .filter(Boolean)
+      .map(part => {
+        const words = part.split(' ').filter(Boolean);
+        if (words.length > 6) {
+          return words.slice(0, 6).join(' ');
+        }
+        return part;
+      })
+      .filter(Boolean);
+
+    return parts.length > 0 ? parts.join(', ') : cleaned;
+  };
+
   const handleGenStyle = async () => {
     if (!formData.worldHistory || !formData.genero || !formData.tom || !formData.magia || !formData.tech) {
       alert('Preencha Gênero, Tom, Magia, Tecnologia e História primeiro.');
@@ -465,8 +562,9 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         tom: formData.tom,
         magia: formData.magia,
         tech: formData.tech,
+        format: 'keywords',
       });
-      setFormData(prev => ({ ...prev, visualStyle: style.trim() }));
+      setFormData(prev => ({ ...prev, visualStyle: formatStyleKeywords(style) }));
     } catch (e) { console.error(e); }
     setGeneratingField(null);
   };
