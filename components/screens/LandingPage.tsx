@@ -9,14 +9,14 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onHowItWorks }) => {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
-      <header className="p-6 flex justify-between items-center">
-        <div className="flex items-center gap-2">
+      <header className="px-4 py-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 relative z-10">
           <img src="/favicon.png" alt="MestrAi" className="h-6 w-6" />
           <h1 className="text-2xl font-bold text-purple-500 tracking-tighter">MestrAi</h1>
         </div>
-        <div className="flex gap-4">
-           <button onClick={onHowItWorks} className="text-slate-400 hover:text-white transition-colors">Como Funciona</button>
-           <Button variant="ghost" onClick={onLogin}>Entrar / Criar Conta</Button>
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 sm:justify-end">
+           <button onClick={onHowItWorks} className="text-slate-400 hover:text-white transition-colors text-sm sm:text-base">Como Funciona</button>
+           <Button variant="ghost" onClick={onLogin} className="text-sm sm:text-base">Entrar / Criar Conta</Button>
         </div>
       </header>
 

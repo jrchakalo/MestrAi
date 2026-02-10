@@ -8,6 +8,7 @@ import { Input } from '../components/ui/Input';
 import { supabase } from '../lib/supabaseClient';
 import { Toast } from '../components/ui/Toast';
 import { calculateRoll, applyDamage, applyRest } from '../lib/gameRules';
+import { useTypewriter } from '../hooks/useTypewriter';
 
 interface GameSessionProps {
   campaign: Campaign;
@@ -21,6 +22,23 @@ interface DeathState {
   cause: string;
   future: string;
 }
+
+interface TypewriterMarkdownProps {
+  text: string;
+  onDone?: () => void;
+  onTick?: () => void;
+}
+
+const TypewriterMarkdown: React.FC<TypewriterMarkdownProps> = ({ text, onDone, onTick }) => {
+  const typed = useTypewriter(text, { enabled: true, speedMs: 10, onDone, onTick });
+  return (
+    <div className="prose prose-invert prose-sm md:prose-base leading-relaxed break-words">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {typed}
+      </ReactMarkdown>
+    </div>
+  );
+};
 
 export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: initialApiKey, playerStatus = 'accepted', onExit }) => {
   const STREAMING_ENABLED = false;
@@ -64,6 +82,9 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const [rollDisplay, setRollDisplay] = useState<{ naturalRoll: number; outcomeLabel: string } | null>(null);
   const [healthDropPulse, setHealthDropPulse] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [typewriterMessageId, setTypewriterMessageId] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pauseNotice, setPauseNotice] = useState('Conexao com a IA interrompida. Verifique sua chave/creditos.');
 
   const HEALTH_LABELS: Record<HealthTier, string> = {
     HEALTHY: 'Saudavel',
@@ -85,6 +106,11 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const pendingMessagesRef = useRef<Message[] | null>(null);
   const initSentRef = useRef(false);
   const prevStatusRef = useRef<CampaignStatus | null>(null);
+  const isAtBottomRef = useRef(true);
+  const lastTypedMessageIdRef = useRef<string | null>(null);
+  const initialScrollDoneRef = useRef(false);
+  const processedImageCallsRef = useRef<Set<string>>(new Set());
+  const diceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const getImageUrl = (msg: Message) => imageOverrides[msg.id] || msg.metadata?.imageUrl || '';
 
@@ -179,6 +205,73 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     el.style.height = `${next}px`;
   };
 
+  const scrollToBottom = () => {
+    if (!scrollRef.current) return;
+    const { scrollHeight } = scrollRef.current;
+    scrollRef.current.scrollTo({ top: scrollHeight, behavior: 'auto' });
+  };
+
+  const pauseChat = (message: string) => {
+    setIsPaused(true);
+    setPauseNotice(message);
+  };
+
+  const TOOL_CODE_REGEX = /<tool_code>([\s\S]*?)<\/tool_code>/g;
+
+  const extractToolCodeBlocks = (text: string) => {
+    const actions: any[] = [];
+    const cleaned = text.replace(TOOL_CODE_REGEX, (_match, jsonBlock) => {
+      const raw = String(jsonBlock || '').trim();
+      if (!raw) return '';
+      try {
+        const parsed = JSON.parse(raw);
+        actions.push(parsed);
+      } catch {
+        return '';
+      }
+      return '';
+    }).trim();
+    return { cleaned, actions };
+  };
+
+  const normalizeToolAction = (actionBlock: any) => {
+    const action = actionBlock?.action;
+    const params = { ...(actionBlock?.params || actionBlock?.args || actionBlock?.parameters || {}) } as Record<string, any>;
+    if (action === 'request_roll' && actionBlock?.params) {
+      return { action, params: actionBlock.params };
+    }
+    if ((action === 'apply_damage' || action === 'apply_rest') && !params.type && actionBlock?.type) {
+      params.type = actionBlock.type;
+    }
+    if (action === 'generate_image' && !params.prompt && actionBlock?.prompt) {
+      params.prompt = actionBlock.prompt;
+    }
+    return { action, params };
+  };
+
+  const processToolCodeActions = async (actions: any[], baseMessages: Message[]) => {
+    for (const block of actions) {
+      const normalized = normalizeToolAction(block);
+      if (!normalized.action) continue;
+      await handleToolCalls(
+        [
+          {
+            id: `tool_code_${normalized.action}_${Date.now()}`,
+            name: normalized.action,
+            args: normalized.params || {},
+          },
+        ],
+        baseMessages
+      );
+    }
+  };
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    isAtBottomRef.current = scrollHeight - scrollTop - clientHeight < 48;
+  };
+
   // --- Initialization ---
   useEffect(() => {
     const initChat = async () => {
@@ -202,10 +295,11 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         ? data.map((row: any) => {
             const role = row.role === 'assistant' ? Role.MODEL : row.role;
             const meta = row.metadata || {};
+            const parsed = row.content ? extractToolCodeBlocks(row.content) : { cleaned: '', actions: [] };
             return {
               id: row.id,
               role,
-              content: row.content || '',
+              content: parsed.cleaned || '',
               timestamp: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
               type: meta.type || (meta.imageUrl ? 'image' : 'text'),
               metadata: meta,
@@ -215,6 +309,14 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       if (initialHistory.length > 0) setMessages(initialHistory);
       if (initialHistory.length > 0) rebuildTurnState(initialHistory);
+
+      if (initialHistory.length > 0) {
+        const lastModel = [...initialHistory]
+          .reverse()
+          .find((msg) => msg.role === Role.MODEL && msg.content && msg.type !== 'image');
+        lastTypedMessageIdRef.current = lastModel?.id || null;
+        setTypewriterMessageId(null);
+      }
 
       const deathMsg = initialHistory.find(m => m.type === 'death_event');
       if (deathMsg) {
@@ -237,6 +339,10 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     initChat();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign.id, apiKey]);
+
+  useEffect(() => {
+    setToast({ msg: `Bem-vindo a ${campaign.title}`, type: 'success' });
+  }, [campaign.title]);
 
   useEffect(() => {
     if (campaignStatus !== CampaignStatus.ACTIVE) return;
@@ -345,6 +451,24 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       supabase.removeChannel(channel);
     };
   }, [campaign.id, userId]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`dice:${campaign.id}`)
+      .on('broadcast', { event: 'dice_roll' }, ({ payload }) => {
+        if (!payload || typeof payload.roll !== 'number') return;
+        const label = payload.label || 'Rolagem registrada';
+        setRollDisplay({ naturalRoll: payload.roll, outcomeLabel: label });
+      })
+      .subscribe();
+
+    diceChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      diceChannelRef.current = null;
+    };
+  }, [campaign.id]);
 
   useEffect(() => {
     const loadPauseReason = async () => {
@@ -481,10 +605,38 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   }, [campaignStatus, messages.length, historyLoaded]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    scrollToBottom();
   }, [messages, campaign.id]);
+
+  useEffect(() => {
+    if (!historyLoaded || messages.length === 0) return;
+    if (initialScrollDoneRef.current) return;
+    scrollToBottom();
+    isAtBottomRef.current = true;
+    initialScrollDoneRef.current = true;
+  }, [historyLoaded, messages.length]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [loading]);
+
+  useEffect(() => {
+    if (!historyLoaded || messages.length === 0) return;
+    const lastModel = [...messages]
+      .reverse()
+      .find((msg) => msg.role === Role.MODEL && msg.content && msg.type !== 'image');
+
+    if (!lastModel) {
+      setTypewriterMessageId(null);
+      lastTypedMessageIdRef.current = null;
+      return;
+    }
+
+    if (lastTypedMessageIdRef.current === lastModel.id) return;
+    lastTypedMessageIdRef.current = lastModel.id;
+    setTypewriterMessageId(lastModel.id);
+  }, [messages, historyLoaded]);
+
 
   useEffect(() => {
     resizeInput(inputRef.current);
@@ -507,9 +659,6 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       const status = data?.status || 'pending';
       setLocalPlayerStatus(status);
-      if (status === 'accepted') {
-        setToast({ msg: 'Você foi aprovado na mesa!', type: 'success' });
-      }
       if (status === 'banned') {
         setToast({ msg: 'Você foi banido desta mesa.', type: 'error' });
       }
@@ -531,7 +680,12 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         { event: '*', schema: 'public', table: 'campaign_players', filter: `campaign_id=eq.${campaign.id}` },
         (payload) => {
           const row: any = payload.new;
-          if (row?.player_id === userId) refreshStatus();
+          if (row?.player_id !== userId) return;
+          const oldRecord: any = payload.old || {};
+          if (oldRecord.status === 'pending' && row.status === 'accepted') {
+            setToast({ msg: 'Você foi aprovado na mesa!', type: 'success' });
+          }
+          refreshStatus();
         }
       )
       .subscribe();
@@ -560,6 +714,30 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
             metadata: meta,
           };
           setMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
+          if (meta?.action) {
+            applyTurnMeta(meta);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `campaign_id=eq.${campaign.id}` },
+        (payload) => {
+          const row: any = payload.new;
+          const role = row.role === 'assistant' ? Role.MODEL : row.role;
+          const meta = row.metadata || {};
+          const parsed = row.content ? extractToolCodeBlocks(row.content) : { cleaned: '', actions: [] };
+          setMessages((prev) => prev.map((m) => (
+            m.id === row.id
+              ? {
+                  ...m,
+                  role,
+                  content: parsed.cleaned || m.content,
+                  type: meta.type || (meta.imageUrl ? 'image' : m.type),
+                  metadata: meta,
+                }
+              : m
+          )));
           if (meta?.action) {
             applyTurnMeta(meta);
           }
@@ -747,6 +925,12 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
             ? `Limite de uso da IA atingido. Tente novamente em ${retryAfter}s.`
             : 'Limite de uso da IA atingido. Aguarde 1-2 minutos e tente novamente.';
           setToast({ msg, type: 'error' });
+          pauseChat('Conexao com a IA interrompida. Limite de uso atingido.');
+          return { hasToolCalls: false, didRespond: false };
+        }
+        if (res.status === 402 || res.status === 500) {
+          pauseChat('Conexao com a IA interrompida. Verifique sua chave/creditos.');
+          setToast({ msg: 'Falha ao gerar resposta. Tente novamente.', type: 'error' });
           return { hasToolCalls: false, didRespond: false };
         }
         if (res.status === 403) {
@@ -754,6 +938,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           return { hasToolCalls: false, didRespond: false };
         }
         setToast({ msg: 'Falha ao gerar resposta. Tente novamente em instantes.', type: 'error' });
+        pauseChat('Conexao com a IA interrompida. Tente novamente.');
         return { hasToolCalls: false, didRespond: false };
       }
 
@@ -785,7 +970,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           setMessages(updatedMessages);
         };
 
-        const handleStreamEvent = (event: any) => {
+        const handleStreamEvent = async (event: any) => {
           if (event?.type === 'token') {
             const tokenText = (event.value || '').toString();
             if (!tokenText) return;
@@ -796,8 +981,14 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           if (event?.type === 'done') {
             const finalText = (event.text || fullText || '').toString();
             if (finalText) {
-              fullText = finalText;
-              upsertModelMessage(finalText);
+              const parsed = extractToolCodeBlocks(finalText);
+              fullText = parsed.cleaned || '';
+              if (fullText) {
+                upsertModelMessage(fullText);
+              }
+              if (parsed.actions.length > 0) {
+                await processToolCodeActions(parsed.actions, updatedMessages);
+              }
             }
           }
           if (event?.type === 'error') {
@@ -822,7 +1013,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
               if (!jsonLine) continue;
 
               const event = JSON.parse(jsonLine);
-              handleStreamEvent(event);
+              await handleStreamEvent(event);
 
               if (event?.type === 'done') {
                 const finalToolCalls = Array.isArray(event.toolCalls) ? event.toolCalls : [];
@@ -833,13 +1024,15 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
                     setMessages(updatedMessages);
                     fullText = '';
                   } else {
-                    await persistMessage({
-                      id: modelId,
-                      role: Role.MODEL,
-                      content: fullText,
-                      timestamp: Date.now(),
-                    });
-                    didRespond = true;
+                    if (fullText.trim()) {
+                      await persistMessage({
+                        id: modelId,
+                        role: Role.MODEL,
+                        content: fullText,
+                        timestamp: Date.now(),
+                      });
+                      didRespond = true;
+                    }
                   }
                 }
 
@@ -875,16 +1068,22 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       const hasImageTool = hasToolCalls && data.toolCalls.some((call: any) => call?.name === 'generate_image');
 
       if (data.text && data.text.trim() && !hasImageTool) {
-        const modelMsg: Message = {
-          id: crypto.randomUUID(),
-          role: Role.MODEL,
-          content: data.text,
-          timestamp: Date.now(),
-        };
-        updatedMessages = [...updatedMessages, modelMsg];
-        setMessages(updatedMessages);
-        await persistMessage(modelMsg);
-        didRespond = true;
+        const parsed = extractToolCodeBlocks(data.text);
+        if (parsed.cleaned) {
+          const modelMsg: Message = {
+            id: crypto.randomUUID(),
+            role: Role.MODEL,
+            content: parsed.cleaned,
+            timestamp: Date.now(),
+          };
+          updatedMessages = [...updatedMessages, modelMsg];
+          setMessages(updatedMessages);
+          await persistMessage(modelMsg);
+          didRespond = true;
+        }
+        if (parsed.actions.length > 0) {
+          await processToolCodeActions(parsed.actions, updatedMessages);
+        }
       }
       if (hasToolCalls) {
         await handleToolCalls(data.toolCalls, updatedMessages);
@@ -896,6 +1095,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     } catch (e) {
       console.error('Chat error:', e);
       setShowKeyUpdateModal(true);
+      pauseChat('Conexao com a IA interrompida. Verifique sua chave/creditos.');
       return { hasToolCalls: false, didRespond: false };
     }
   };
@@ -965,6 +1165,11 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       if (call.name === 'generate_image') {
         const prompt = (call.args as any).prompt;
+        const callId = call.id || `call_${call.name}`;
+        if (processedImageCallsRef.current.has(callId)) return;
+        if (baseMessages.some((msg) => msg.metadata?.imageUrl && msg.metadata?.sourceCallId === callId)) return;
+        if (baseMessages.some((msg) => msg.metadata?.imageUrl && msg.metadata?.prompt === prompt)) return;
+        processedImageCallsRef.current.add(callId);
         const visualStyle = campaign.visualStyle;
         const seed = Math.floor(Math.random() * 9999);
         const finalPrompt = `${visualStyle}. ${prompt}`;
@@ -977,7 +1182,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           content: '',
           timestamp: Date.now(),
           type: 'image',
-          metadata: { imageUrl },
+          metadata: { imageUrl, sourceCallId: callId, prompt },
         };
 
         const nextMessages = [...baseMessages, imgMsg];
@@ -1017,6 +1222,10 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   // --- Handlers ---
 
   const handleSendMessage = async (text: string, isSystemInit = false) => {
+    if (isPaused && !isSystemInit) {
+      setToast({ msg: 'Chat pausado. Tente novamente.', type: 'error' });
+      return;
+    }
     if (deathState?.isDead) {
       setToast({ msg: 'Você está morto e não pode agir nesta mesa.', type: 'error' });
       return;
@@ -1131,6 +1340,17 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       outcomeLabel: rollResult.labelPtBr,
     });
 
+    diceChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'dice_roll',
+      payload: {
+        roll: rollResult.naturalRoll || total,
+        label: rollResult.labelPtBr,
+        playerId: userId,
+        playerName: campaign.characterName,
+      },
+    });
+
     const sysMsg: Message = {
       id: crypto.randomUUID(),
       role: Role.SYSTEM,
@@ -1160,6 +1380,25 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const handleTurnRollComplete = (total: number) => {
     setTurnRoll(total);
     setTurnDiceRequest(null);
+  };
+
+  const handleRetryLastMessage = async () => {
+    if (loading) return;
+    const lastUserIndex = [...messages].reverse().findIndex((msg) => msg.role === Role.USER);
+    if (lastUserIndex === -1) {
+      setIsPaused(false);
+      return;
+    }
+    const targetIndex = messages.length - 1 - lastUserIndex;
+    const lastUser = messages[targetIndex];
+    const baseMessages = messages.filter((_, index) => index !== targetIndex);
+    setIsPaused(false);
+    setLoading(true);
+    try {
+      await sendChat({ baseMessages, inputText: lastUser.content, autoStartTurn: true });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeath = async (cause: string, future: string) => {
@@ -1512,11 +1751,26 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       )}
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth" ref={scrollRef}>
+      <div
+        className="flex-1 overflow-y-auto p-4 space-y-6 scroll-auto"
+        ref={scrollRef}
+        onScroll={handleScroll}
+      >
         {motd && (
           <div className="bg-purple-900/20 border border-purple-700/50 rounded-xl p-4 text-sm text-purple-200">
             <p className="font-semibold mb-1">Mensagem do Mestre</p>
             <p>{motd.replace('[SISTEMA] ', '')}</p>
+          </div>
+        )}
+        {isPaused && (
+          <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-4 text-sm text-yellow-200">
+            <p className="font-semibold mb-1">Conexao interrompida</p>
+            <p className="text-yellow-200/80">{pauseNotice}</p>
+            <div className="mt-3">
+              <Button size="sm" variant="outline" onClick={handleRetryLastMessage}>
+                Tentar novamente
+              </Button>
+            </div>
           </div>
         )}
         {campaignStatus === CampaignStatus.WAITING && (
@@ -1599,11 +1853,20 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
               
               {/* Text Rendering with Markdown */}
               {msg.content && (
-                <div className="prose prose-invert prose-sm md:prose-base leading-relaxed break-words">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {msg.content}
-                  </ReactMarkdown>
-                </div>
+                msg.id === typewriterMessageId ? (
+                  <TypewriterMarkdown
+                    text={msg.content}
+                    onTick={() => {
+                      requestAnimationFrame(scrollToBottom);
+                    }}
+                  />
+                ) : (
+                  <div className="prose prose-invert prose-sm md:prose-base leading-relaxed break-words">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -1653,6 +1916,8 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
               placeholder={
                 loading
                   ? "Narrando..."
+                  : isPaused
+                  ? "Conexao interrompida"
                   : localPlayerStatus === 'pending'
                   ? "Aguardando aprovação..."
                   : localPlayerStatus === 'banned'
@@ -1668,10 +1933,10 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onInput={(e) => resizeInput(e.currentTarget)}
-              disabled={loading || !!diceRequest || campaignStatus === CampaignStatus.ARCHIVED || campaignStatus === CampaignStatus.WAITING || campaignStatus === CampaignStatus.PAUSED || localPlayerStatus === 'pending' || localPlayerStatus === 'banned' || (turnState.active && userId !== turnState.order[turnState.currentIndex])}
+              disabled={isPaused || loading || !!diceRequest || campaignStatus === CampaignStatus.ARCHIVED || campaignStatus === CampaignStatus.WAITING || campaignStatus === CampaignStatus.PAUSED || localPlayerStatus === 'pending' || localPlayerStatus === 'banned' || (turnState.active && userId !== turnState.order[turnState.currentIndex])}
               autoFocus
             />
-            <Button type="submit" disabled={loading || !input.trim() || !!diceRequest || campaignStatus === CampaignStatus.ARCHIVED || campaignStatus === CampaignStatus.WAITING || campaignStatus === CampaignStatus.PAUSED || localPlayerStatus === 'pending' || localPlayerStatus === 'banned' || (turnState.active && userId !== turnState.order[turnState.currentIndex])}>
+            <Button type="submit" disabled={isPaused || loading || !input.trim() || !!diceRequest || campaignStatus === CampaignStatus.ARCHIVED || campaignStatus === CampaignStatus.WAITING || campaignStatus === CampaignStatus.PAUSED || localPlayerStatus === 'pending' || localPlayerStatus === 'banned' || (turnState.active && userId !== turnState.order[turnState.currentIndex])}>
               Enviar
             </Button>
           </form>
