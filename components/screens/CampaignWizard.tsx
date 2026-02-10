@@ -75,7 +75,20 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
     'Outro'
   ];
 
-  const GENRE_SETTINGS: Record<string, { magicLabel: string; magicOptions: string[]; toneOptions: string[] }> = {
+  const TECH_OPTIONS = [
+    'Primitivo/Idade da Pedra',
+    'Medieval/Arcaico',
+    'Industrial/Steampunk',
+    'Moderno (Sec. XXI)',
+    'Avancado/Sci-Fi',
+    'Retro-Futurista',
+    'Outro'
+  ];
+
+  const GENRE_SETTINGS: Record<
+    string,
+    { magicLabel: string; magicOptions: string[]; toneOptions: string[]; techLabel: string; techOptions: string[] }
+  > = {
     'Fantasia Epica': {
       magicLabel: 'Nivel de Magia',
       magicOptions: [
@@ -92,6 +105,15 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Sombrio (Dificil)',
         'Terror Mortal (Muito Dificil)',
         'Comedia',
+        'Outro'
+      ],
+      techLabel: 'Nivel de Tecnologia',
+      techOptions: [
+        'Primitivo/Idade da Pedra',
+        'Medieval/Arcaico',
+        'Industrial/Steampunk',
+        'Moderno (Sec. XXI)',
+        'Avancado/Sci-Fi',
         'Outro'
       ]
     },
@@ -112,6 +134,15 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Neon Noir',
         'Gritty/Violento',
         'Outro'
+      ],
+      techLabel: 'Infraestrutura Urbana',
+      techOptions: [
+        'Sucata/Decadente',
+        'Neon Corporativo',
+        'Cidades Inteligentes',
+        'Submundo Tech',
+        'Hipervigilancia',
+        'Outro'
       ]
     },
     'Terror Sobrenatural': {
@@ -130,6 +161,15 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Gore Brutal',
         'Investigativo Sombrio',
         'Desesperanca Total',
+        'Outro'
+      ],
+      techLabel: 'Nivel de Tecnologia',
+      techOptions: [
+        'Rural/Isolado',
+        'Urbano Moderno',
+        'Industrial',
+        'Pesquisa Secreta',
+        'Avancado/Sci-Fi',
         'Outro'
       ]
     },
@@ -150,6 +190,15 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Aventura Cientifica',
         'Distopia Fria',
         'Outro'
+      ],
+      techLabel: 'Nivel de Tecnologia',
+      techOptions: [
+        'Moderno (Sec. XXI)',
+        'Colonias Espaciais',
+        'Avancado/Sci-Fi',
+        'Nanotecnologia',
+        'IA Onipresente',
+        'Outro'
       ]
     },
     'Pos-Apocaliptico': {
@@ -168,6 +217,15 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Road Trip Caotico',
         'Tribal/Barbaro',
         'Sombrio (Dificil)',
+        'Outro'
+      ],
+      techLabel: 'Recursos e Tecnologia',
+      techOptions: [
+        'Sucata/Improvisado',
+        'Baixa Tecnologia',
+        'Restos Industriais',
+        'Armas Improvisadas',
+        'Avancado Recuperado',
         'Outro'
       ]
     },
@@ -188,6 +246,15 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Cinematografico',
         'Pessimista',
         'Outro'
+      ],
+      techLabel: 'Nivel de Tecnologia',
+      techOptions: [
+        'Retro/Anos 40',
+        'Moderno (Sec. XXI)',
+        'Vigilancia Digital',
+        'Laboratorios Secretos',
+        'Baixa Tecnologia',
+        'Outro'
       ]
     },
     'Velho Oeste': {
@@ -206,6 +273,15 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Sombrio (Dificil)',
         'Comedia de Saiao',
         'Revanche/Justica',
+        'Outro'
+      ],
+      techLabel: 'Nivel de Tecnologia',
+      techOptions: [
+        'Historico Realista',
+        'Engenhocas a Vapor',
+        'Armas Experimentais',
+        'Baixa Tecnologia',
+        'Retro-Futurista',
         'Outro'
       ]
     },
@@ -226,6 +302,15 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Watchmen (Investigativo/Sombrio)',
         'Juvenil/Equipe',
         'Outro'
+      ],
+      techLabel: 'Nivel de Tecnologia',
+      techOptions: [
+        'Moderno (Sec. XXI)',
+        'Alta Tecnologia Secreta',
+        'Alienigena',
+        'Corp Tech',
+        'Avancado/Sci-Fi',
+        'Outro'
       ]
     },
     'Isekai': {
@@ -244,6 +329,15 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Aventura de Guilda',
         'Sombrio (Dificil)',
         'Slice of Life',
+        'Outro'
+      ],
+      techLabel: 'Nivel de Tecnologia',
+      techOptions: [
+        'Medieval/Arcaico',
+        'Renascimento',
+        'Magitec Basico',
+        'Magitec Avancado',
+        'Tecnologia Fora do Mundo',
         'Outro'
       ]
     },
@@ -264,13 +358,24 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Sombrio (Dificil)',
         'Exploracao',
         'Outro'
+      ],
+      techLabel: 'Nivel de Tecnologia',
+      techOptions: [
+        'Industrial/Steampunk',
+        'Retro-Futurista',
+        'Automatos Avancados',
+        'Engrenagens Gigantes',
+        'Vapor e Eter',
+        'Outro'
       ]
     }
   };
 
   const [availableToneOptions, setAvailableToneOptions] = useState<string[]>(TOM_OPTIONS);
   const [availableMagicOptions, setAvailableMagicOptions] = useState<string[]>(MAGIA_OPTIONS);
+  const [availableTechOptions, setAvailableTechOptions] = useState<string[]>(TECH_OPTIONS);
   const [magicLabel, setMagicLabel] = useState('Nivel de Magia');
+  const [techLabel, setTechLabel] = useState('Nivel de Tecnologia');
 
   useEffect(() => {
     const selectedGenre = generoOption !== 'Outro' ? generoOption : '';
@@ -279,29 +384,25 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
     if (settings) {
       setAvailableToneOptions(settings.toneOptions);
       setAvailableMagicOptions(settings.magicOptions);
+      setAvailableTechOptions(settings.techOptions);
       setMagicLabel(settings.magicLabel);
+      setTechLabel(settings.techLabel);
     } else {
       setAvailableToneOptions(TOM_OPTIONS);
       setAvailableMagicOptions(MAGIA_OPTIONS);
+      setAvailableTechOptions(TECH_OPTIONS);
       setMagicLabel('Nivel de Magia');
+      setTechLabel('Nivel de Tecnologia');
     }
 
     setTomOption('');
     setTomOther('');
     setMagiaOption('');
     setMagiaOther('');
-    setFormData(prev => ({ ...prev, tom: '', magia: '' }));
+    setTechOption('');
+    setTechOther('');
+    setFormData(prev => ({ ...prev, tom: '', magia: '', tech: '' }));
   }, [generoOption]);
-
-  const TECH_OPTIONS = [
-    'Primitivo/Idade da Pedra',
-    'Medieval/Arcaico',
-    'Industrial/Steampunk',
-    'Moderno (Sec. XXI)',
-    'Avancado/Sci-Fi',
-    'Retro-Futurista',
-    'Outro'
-  ];
 
   const callSuggest = async (type: string, payload: Record<string, any> = {}) => {
     const res = await fetch('/api/suggest', {
@@ -609,7 +710,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         </div>
 
         <div>
-          <label className="text-sm font-medium text-slate-300 mb-1 block">Nivel de Tecnologia</label>
+          <label className="text-sm font-medium text-slate-300 mb-1 block">{techLabel}</label>
           <select
             className="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-slate-100 focus:ring-2 focus:ring-purple-500"
             value={techOption}
@@ -625,21 +726,21 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
             }}
           >
             <option value="">Selecione</option>
-            {TECH_OPTIONS.map((option) => (
+            {availableTechOptions.map((option) => (
               <option key={option} value={option}>{option}</option>
             ))}
           </select>
           {techOption === 'Outro' && (
             <div className="mt-2">
               <Input
-                label="Outro Nivel de Tecnologia"
+                label={`Outro ${techLabel}`}
                 required
                 value={techOther}
                 onChange={e => {
                   setTechOther(e.target.value);
                   setFormData(prev => ({ ...prev, tech: e.target.value }));
                 }}
-                placeholder="Descreva o nivel de tecnologia"
+                placeholder="Descreva o nivel"
               />
             </div>
           )}
