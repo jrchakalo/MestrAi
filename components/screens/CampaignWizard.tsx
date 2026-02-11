@@ -48,7 +48,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
     'Cyberpunk',
     'Terror Sobrenatural',
     'Ficção Científica',
-    'Pos-Apocalíptico',
+    'Pós-Apocalíptico',
     'Investigação Noir',
     'Velho Oeste',
     'Super-Heróis',
@@ -165,9 +165,9 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
       ],
       techLabel: 'Nível de Tecnologia',
       techOptions: [
-        'Rural/Isolado',
-        'Urbano Moderno',
+        'Medieval/Arcaico',
         'Industrial',
+        'Urbano Moderno',
         'Pesquisa Secreta',
         'Avançado/Sci-Fi',
         'Outro'
@@ -229,7 +229,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Outro'
       ]
     },
-    'Investigacao Noir': {
+    'Investigação Noir': {
       magicLabel: 'Elemento Extraordinário',
       magicOptions: [
         'Sem Sobrenatural',
@@ -285,7 +285,7 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
         'Outro'
       ]
     },
-    'Super-Herois': {
+    'Super-Heróis': {
       magicLabel: 'Origem dos Poderes',
       magicOptions: [
         'Mutações',
@@ -305,6 +305,8 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
       ],
       techLabel: 'Nível de Tecnologia',
       techOptions: [
+        'Medieval',
+        'Industrial',
         'Moderno (Sec. XXI)',
         'Alta Tecnologia Secreta',
         'Alienígena',
