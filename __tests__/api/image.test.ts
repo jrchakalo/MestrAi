@@ -3,7 +3,6 @@ import * as rateLimit from '@/lib/ai/rateLimit'
 import { mockReset } from 'jest-mock-extended'
 
 jest.mock('@/lib/ai/rateLimit')
-jest.mock('node-fetch', () => require('jest-fetch-mock'))
 
 const mockIsRateLimited = rateLimit.isRateLimited as jest.MockedFunction<typeof rateLimit.isRateLimited>
 

@@ -339,6 +339,345 @@ exports[`CampaignWizard Component Snapshots should match snapshot - campaign wiz
 </div>
 `;
 
+exports[`CampaignWizard Component Snapshots should match snapshot - campaign wizard with all visible fields 1`] = `
+<div
+  class="min-h-screen bg-slate-950 flex items-center justify-center p-4"
+>
+  <div
+    class="w-full max-w-3xl bg-slate-900 p-8 rounded-xl border border-slate-800 shadow-2xl"
+  >
+    <div
+      class="mb-6 flex justify-between items-center border-b border-slate-800 pb-4"
+    >
+      <h2
+        class="text-2xl font-bold text-white"
+      >
+        Criar Nova Mesa
+      </h2>
+      <div
+        class="flex gap-2"
+      >
+        <span
+          class="w-3 h-3 rounded-full bg-purple-500"
+        />
+        <span
+          class="w-3 h-3 rounded-full bg-slate-700"
+        />
+      </div>
+    </div>
+    <div
+      class="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300"
+    >
+      <h3
+        class="text-xl font-bold text-purple-400"
+      >
+        Passo 1: O Mundo
+      </h3>
+      <div
+        class="relative"
+      >
+        <div
+          class="flex flex-col gap-1.5 w-full"
+        >
+          <label
+            class="text-sm font-medium text-slate-300"
+          >
+            Nome da Campanha
+          </label>
+          <input
+            class="flex h-10 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50 "
+            placeholder="Ex: As Crônicas de Eldoria"
+            required=""
+            value=""
+          />
+        </div>
+        <button
+          class="absolute right-2 top-8 text-xs bg-purple-900/50 hover:bg-purple-800 text-purple-200 border border-purple-700/50 px-2 py-1 rounded transition-colors"
+          type="button"
+        >
+          ✨ IA
+        </button>
+      </div>
+      <div
+        class="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
+        <div>
+          <label
+            class="text-sm font-medium text-slate-300 mb-1 block"
+          >
+            Gênero Principal
+          </label>
+          <select
+            class="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-slate-100 focus:ring-2 focus:ring-purple-500"
+          >
+            <option
+              value=""
+            >
+              Selecione
+            </option>
+            <option
+              value="Fantasia Épica"
+            >
+              Fantasia Épica
+            </option>
+            <option
+              value="Cyberpunk"
+            >
+              Cyberpunk
+            </option>
+            <option
+              value="Terror Sobrenatural"
+            >
+              Terror Sobrenatural
+            </option>
+            <option
+              value="Ficção Científica"
+            >
+              Ficção Científica
+            </option>
+            <option
+              value="Pós-Apocalíptico"
+            >
+              Pós-Apocalíptico
+            </option>
+            <option
+              value="Investigação Noir"
+            >
+              Investigação Noir
+            </option>
+            <option
+              value="Velho Oeste"
+            >
+              Velho Oeste
+            </option>
+            <option
+              value="Super-Heróis"
+            >
+              Super-Heróis
+            </option>
+            <option
+              value="Isekai"
+            >
+              Isekai
+            </option>
+            <option
+              value="Steampunk"
+            >
+              Steampunk
+            </option>
+            <option
+              value="Outro"
+            >
+              Outro
+            </option>
+          </select>
+        </div>
+        <div>
+          <label
+            class="text-sm font-medium text-slate-300 mb-1 block"
+          >
+            Tom e Letalidade
+          </label>
+          <select
+            class="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-slate-100 focus:ring-2 focus:ring-purple-500"
+          >
+            <option
+              value=""
+            >
+              Selecione
+            </option>
+            <option
+              value="Comédia"
+            >
+              Comédia
+            </option>
+            <option
+              value="Heroico (Fácil)"
+            >
+              Heroico (Fácil)
+            </option>
+            <option
+              value="Aventura Padrão (Normal)"
+            >
+              Aventura Padrão (Normal)
+            </option>
+            <option
+              value="Sombrio (Difícil)"
+            >
+              Sombrio (Difícil)
+            </option>
+            <option
+              value="Terror Mortal (Muito Difícil)"
+            >
+              Terror Mortal (Muito Difícil)
+            </option>
+            <option
+              value="Outro"
+            >
+              Outro
+            </option>
+          </select>
+        </div>
+        <div>
+          <label
+            class="text-sm font-medium text-slate-300 mb-1 block"
+          >
+            Nível de Magia
+          </label>
+          <select
+            class="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-slate-100 focus:ring-2 focus:ring-purple-500"
+          >
+            <option
+              value=""
+            >
+              Selecione
+            </option>
+            <option
+              value="Mundano (Sem Magia)"
+            >
+              Mundano (Sem Magia)
+            </option>
+            <option
+              value="Baixa Fantasia (Rara/Perigosa)"
+            >
+              Baixa Fantasia (Rara/Perigosa)
+            </option>
+            <option
+              value="Alta Fantasia (Comum/Poderosa)"
+            >
+              Alta Fantasia (Comum/Poderosa)
+            </option>
+            <option
+              value="Divina/Mítica"
+            >
+              Divina/Mítica
+            </option>
+            <option
+              value="Sombria/Corrupta"
+            >
+              Sombria/Corrupta
+            </option>
+            <option
+              value="Outro"
+            >
+              Outro
+            </option>
+          </select>
+        </div>
+        <div>
+          <label
+            class="text-sm font-medium text-slate-300 mb-1 block"
+          >
+            Nível de Tecnologia
+          </label>
+          <select
+            class="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-slate-100 focus:ring-2 focus:ring-purple-500"
+          >
+            <option
+              value=""
+            >
+              Selecione
+            </option>
+            <option
+              value="Primitivo/Idade da Pedra"
+            >
+              Primitivo/Idade da Pedra
+            </option>
+            <option
+              value="Medieval/Arcaico"
+            >
+              Medieval/Arcaico
+            </option>
+            <option
+              value="Industrial/Steampunk"
+            >
+              Industrial/Steampunk
+            </option>
+            <option
+              value="Moderno (Sec. XXI)"
+            >
+              Moderno (Sec. XXI)
+            </option>
+            <option
+              value="Avançado/Sci-Fi"
+            >
+              Avançado/Sci-Fi
+            </option>
+            <option
+              value="Retro-Futurista"
+            >
+              Retro-Futurista
+            </option>
+            <option
+              value="Outro"
+            >
+              Outro
+            </option>
+          </select>
+        </div>
+      </div>
+      <div
+        class="relative"
+      >
+        <label
+          class="text-sm font-medium text-slate-300 mb-1 block"
+        >
+          História do Mundo & Contexto
+        </label>
+        <textarea
+          class="w-full bg-slate-950 border border-slate-700 rounded-md p-3 text-slate-100 h-32 focus:ring-2 focus:ring-purple-500 focus:outline-none placeholder:text-slate-600"
+          placeholder="A IA ira gerar baseada no genero, tom, magia e tecnologia escolhidos..."
+        />
+        <button
+          class="absolute right-2 top-8 text-xs bg-purple-900/50 hover:bg-purple-800 text-purple-200 border border-purple-700/50 px-2 py-1 rounded transition-colors"
+          type="button"
+        >
+          ✨ IA
+        </button>
+      </div>
+      <div
+        class="relative"
+      >
+        <label
+          class="text-sm font-medium text-slate-300 mb-1 block"
+        >
+          Estilo Visual (Prompt de Imagem)
+        </label>
+        <textarea
+          class="w-full bg-slate-900 border border-slate-700 rounded-md p-3 text-slate-400 h-20 text-sm focus:outline-none"
+          placeholder="Estilo usado para gerar imagens (Prompt)"
+        />
+        <button
+          class="absolute right-2 top-8 text-xs bg-purple-900/50 hover:bg-purple-800 text-purple-200 border border-purple-700/50 px-2 py-1 rounded transition-colors"
+          type="button"
+        >
+          ✨ IA
+        </button>
+      </div>
+      <div
+        class="flex justify-end pt-4"
+      >
+        <button
+          class="inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:pointer-events-none disabled:opacity-50 bg-purple-600 text-white hover:bg-purple-700 shadow-sm h-10 px-4 py-2"
+          disabled=""
+        >
+          Próximo: Criar Personagem →
+        </button>
+      </div>
+    </div>
+    <div
+      class="mt-4 text-center"
+    >
+      <button
+        class="text-slate-500 text-sm hover:text-white underline"
+      >
+        Cancelar Criação
+      </button>
+    </div>
+  </div>
+</div>
+`;
+
 exports[`CampaignWizard Component Snapshots should match snapshot - genre options rendered 1`] = `
 <div
   class="min-h-screen bg-slate-950 flex items-center justify-center p-4"
