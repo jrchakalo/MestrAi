@@ -60,12 +60,21 @@ export interface Message {
     order?: string[];
     order_names?: string[];
     current_index?: number;
+    current_player_id?: string | null;
     player_id?: string;
     player_name?: string;
     text?: string;
     roll?: number | null;
     reason?: string | null;
     dex_key?: string;
+    phase?: 'gm_intro' | 'player_action' | 'gm_resolution';
+    inventory_action?: string;
+    item_id?: string | null;
+    amount?: number | null;
+    health_event?: 'DAMAGE_LIGHT' | 'DAMAGE_HEAVY' | 'REST_SHORT' | 'REST_LONG' | 'FORCE_DEAD';
+    health_from?: HealthTier;
+    health_to?: HealthTier;
+    health_counter?: number;
     sourceCallId?: string;
     prompt?: string;
   };
@@ -105,4 +114,9 @@ export interface InventoryItem {
   name: string;
   type: "consumable" | "equipment";
   quantity: number;
+  durabilityCurrent?: number;
+  durabilityMax?: number;
+  broken?: boolean;
+  value?: number;
+  tags?: string[];
 }

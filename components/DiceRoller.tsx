@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DiceRollRequest } from '../types';
 import { Button } from './ui/Button';
@@ -12,21 +12,58 @@ interface DiceRollerProps {
 export const DiceRoller: React.FC<DiceRollerProps> = ({ isOpen, request, onRollComplete }) => {
   const [rolling, setRolling] = useState(false);
   const [result, setResult] = useState<number | null>(null);
+  const isCompletingRef = useRef(false);
+  const rollTimeoutRef = useRef<number | null>(null);
+  const completeTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setRolling(false);
+      setResult(null);
+      isCompletingRef.current = false;
+      if (rollTimeoutRef.current) {
+        window.clearTimeout(rollTimeoutRef.current);
+        rollTimeoutRef.current = null;
+      }
+      if (completeTimeoutRef.current) {
+        window.clearTimeout(completeTimeoutRef.current);
+        completeTimeoutRef.current = null;
+      }
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (rollTimeoutRef.current) window.clearTimeout(rollTimeoutRef.current);
+      if (completeTimeoutRef.current) window.clearTimeout(completeTimeoutRef.current);
+    };
+  }, []);
 
   const handleVirtualRoll = () => {
+    if (rolling || isCompletingRef.current) return;
     setRolling(true);
     // Simulate animation time
-    setTimeout(() => {
+    rollTimeoutRef.current = window.setTimeout(() => {
       const roll = Math.floor(Math.random() * 20) + 1; // Default d20
       setResult(roll);
       setRolling(false);
       
       // Auto close after showing result briefly
-      setTimeout(() => {
+      completeTimeoutRef.current = window.setTimeout(() => {
+        if (isCompletingRef.current) return;
+        isCompletingRef.current = true;
         onRollComplete(roll);
         setResult(null);
       }, 1500);
     }, 1000);
+  };
+
+  const handleManualRoll = (value: string) => {
+    if (rolling || isCompletingRef.current) return;
+    const parsed = Number.parseInt(value, 10);
+    const roll = Number.isFinite(parsed) ? Math.min(20, Math.max(1, parsed)) : 10;
+    isCompletingRef.current = true;
+    onRollComplete(roll);
   };
 
   if (!isOpen || !request) return null;
@@ -75,9 +112,12 @@ export const DiceRoller: React.FC<DiceRollerProps> = ({ isOpen, request, onRollC
                    type="number" 
                    placeholder="Manual"
                    className="w-full bg-slate-800 border border-slate-700 rounded px-2 text-center text-white"
+                   min={1}
+                   max={20}
+                   disabled={rolling || result !== null}
                    onKeyDown={(e) => {
                      if(e.key === 'Enter') {
-                        onRollComplete(parseInt(e.currentTarget.value) || 10);
+                        handleManualRoll(e.currentTarget.value);
                      }
                    }}
                  />
