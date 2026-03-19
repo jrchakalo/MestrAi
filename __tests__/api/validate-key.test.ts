@@ -2,13 +2,11 @@ import { POST } from '@/app/api/validate-key/route'
 import Groq from 'groq-sdk'
 import * as keyPool from '@/lib/ai/keyPool'
 import * as rateLimit from '@/lib/ai/rateLimit'
-import * as modelPool from '@/lib/ai/modelPool'
 import { mockDeep, mockReset } from 'jest-mock-extended'
 
 jest.mock('groq-sdk')
 jest.mock('@/lib/ai/keyPool')
 jest.mock('@/lib/ai/rateLimit')
-jest.mock('@/lib/ai/modelPool')
 
 const MockGroq = Groq as jest.MockedClass<typeof Groq>
 const mockPickApiKey = keyPool.pickApiKey as jest.MockedFunction<typeof keyPool.pickApiKey>

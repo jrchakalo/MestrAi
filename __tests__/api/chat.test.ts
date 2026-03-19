@@ -281,11 +281,39 @@ describe('POST /api/chat', () => {
             .fn()
             .mockResolvedValue({ data: { user: { id: 'user-123' } } }),
         },
-        from: jest.fn((table) => ({
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          maybeSingle: jest.fn().mockResolvedValue({ data: null }),
-        })),
+        from: jest.fn((table) => {
+          if (table === 'campaigns') {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              maybeSingle: jest.fn().mockResolvedValue({ data: null }),
+            }
+          }
+
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest
+              .fn()
+              .mockReturnThis()
+              .mockImplementation(() => ({
+                eq: jest.fn().mockReturnThis().mockImplementation(() => ({
+                  maybeSingle: jest.fn().mockResolvedValue({
+                    data: {
+                      status: 'accepted',
+                      is_dead: false,
+                      character_data_json: {
+                        inferred: {
+                          profession: 'Ranger',
+                          health: { tier: 'HEALTHY' },
+                          inventory: [],
+                        },
+                      },
+                    },
+                  }),
+                })),
+              })),
+          }
+        }),
       }
 
       mockCreateServerClient.mockReturnValue(mockSupabase as any)
@@ -311,56 +339,40 @@ describe('POST /api/chat', () => {
             .mockResolvedValue({ data: { user: { id: 'user-123' } } }),
         },
         from: jest.fn((table) => {
-          const campaigns = jest
-            .fn()
-            .mockReturnThis()
-            .mockImplementation((name) => ({
-              select: jest
-                .fn()
-                .mockReturnThis()
-                .mockImplementation(() => ({
-                  eq: jest
-                    .fn()
-                    .mockReturnThis()
-                    .mockImplementation(() => ({
-                      maybeSingle: jest.fn().mockResolvedValue({
-                        data: {
-                          status: 'active',
-                          owner_id: 'owner-456',
-                        },
-                      }),
-                    })),
-                })),
-            }))
-
           if (table === 'campaigns') {
-            return campaigns()
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: {
+                  status: 'active',
+                  owner_id: 'owner-456',
+                },
+              }),
+            }
           }
 
-          // campaign_players query
           return {
-            select: jest
+            select: jest.fn().mockReturnThis(),
+            eq: jest
               .fn()
               .mockReturnThis()
               .mockImplementation(() => ({
-                eq: jest
-                  .fn()
-                  .mockReturnThis()
-                  .mockImplementation(() => ({
-                    maybeSingle: jest.fn().mockResolvedValue({
-                      data: {
-                        is_dead: true,
-                        status: 'accepted',
-                        character_data_json: {
-                          inferred: {
-                            profession: 'Ranger',
-                            health: { tier: 'DEAD' },
-                            inventory: [],
-                          },
+                eq: jest.fn().mockReturnThis().mockImplementation(() => ({
+                  maybeSingle: jest.fn().mockResolvedValue({
+                    data: {
+                      is_dead: true,
+                      status: 'accepted',
+                      character_data_json: {
+                        inferred: {
+                          profession: 'Ranger',
+                          health: { tier: 'DEAD' },
+                          inventory: [],
                         },
                       },
-                    }),
-                  })),
+                    },
+                  }),
+                })),
               })),
           }
         }),
