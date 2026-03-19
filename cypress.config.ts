@@ -1,0 +1,23 @@
+import { defineConfig } from 'cypress'
+
+export default defineConfig({
+  e2e: {
+    baseUrl: 'http://localhost:3000',
+    viewportWidth: 1280,
+    viewportHeight: 720,
+    video: false,
+    requestTimeout: 10000,
+    responseTimeout: 10000,
+    defaultCommandTimeout: 8000,
+    allowCypressEnv: false,
+    setupNodeEvents(on, config) {
+      // Implement node event listeners here
+    },
+  },
+  component: {
+    devServer: {
+      framework: 'next',
+      bundler: 'webpack',
+    },
+  },
+})
