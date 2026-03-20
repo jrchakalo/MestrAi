@@ -85,7 +85,7 @@ const normalizeInventory = (value: unknown): InventoryItem[] => {
 
 export async function POST(req: Request) {
   try {
-    const userKey = req.headers.get("x-custom-api-key") || undefined;
+    const userKey = req.headers.get("x-custom-api-key") ?? "";
 
     const ip = (req.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
     const rateKey = `infer:${ip}`;

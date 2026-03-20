@@ -30,7 +30,7 @@ function createRequest(
 describe('GET /api/image', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockFetch.mockClear()
+    mockReset(mockFetch)
     mockIsRateLimited.mockResolvedValue(false)
   })
 
