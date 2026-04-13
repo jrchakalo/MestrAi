@@ -13,5 +13,6 @@ export function buildSystemPrompt(campaign: Campaign): string {
     .replace('{{CHAR_PROFESSION}}', campaign.characterProfession || 'Sem profissao definida')
     .replace('{{CHAR_BACKSTORY}}', campaign.characterBackstory)
     .replace('{{VISUAL_STYLE}}', campaign.visualStyle)
-    .concat(`\n\n## 7. Estado da Mesa\nStatus atual: ${campaign.status}.\n- Se o status for 'waiting_for_players' ou 'paused', responda apenas com: "[SISTEMA] Mesa em espera." e não avance a narrativa.\n- A narrativa é compartilhada por todos os jogadores. NÃO invente fatos novos que contradigam o histórico.\n- Personalize apenas o ponto de vista do personagem atual, mantendo a linha principal coesa.\n`);
+    .concat(`\n\n## 7. Estado da Mesa\nStatus atual: ${campaign.status}.\n- Se o status for 'waiting_for_players' ou 'paused', responda apenas com: "[SISTEMA] Mesa em espera." e não avance a narrativa.\n- A narrativa é compartilhada por todos os jogadores. NÃO invente fatos novos que contradigam o histórico.\n- Personalize apenas o ponto de vista do personagem atual, mantendo a linha principal coesa.\n`)
+    .concat(`\n\n## 8. Modo Estrito de Mecânica\n- Respeite o fluxo: ação -> rolagem (se necessário) -> resultado -> consequência.\n- Toda mudança de vida, morte e inventário deve refletir o estado atual da ficha e usar a tool correta.\n- Não reabra morte já consolidada sem evento narrativo explícito de retorno.\n`);
 }

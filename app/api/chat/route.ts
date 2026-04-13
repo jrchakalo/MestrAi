@@ -65,6 +65,13 @@ const updateCharacterSchema = {
   type: 'object',
   properties: {
     profession: { type: 'string' },
+    health: {
+      type: 'object',
+      properties: {
+        tier: { type: 'string', enum: ['HEALTHY', 'INJURED', 'CRITICAL', 'DEAD'] },
+        lightDamageCounter: { type: 'number' },
+      },
+    },
     inventory: {
       type: 'array',
       items: {
@@ -79,6 +86,34 @@ const updateCharacterSchema = {
     },
   },
   required: [],
+};
+
+const manageInventorySchema = {
+  type: 'object',
+  properties: {
+    operation: {
+      type: 'string',
+      enum: ['acquire', 'consume', 'drop', 'break', 'repair', 'set_quantity'],
+    },
+    item_id: { type: 'string' },
+    amount: { type: 'number' },
+    reason: { type: 'string' },
+    item: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        name: { type: 'string' },
+        type: { type: 'string', enum: ['consumable', 'equipment'] },
+        quantity: { type: 'number' },
+        durability_current: { type: 'number' },
+        durability_max: { type: 'number' },
+        broken: { type: 'boolean' },
+        value: { type: 'number' },
+        tags: { type: 'array', items: { type: 'string' } },
+      },
+    },
+  },
+  required: ['operation'],
 };
 
 function safeParseArgs(args: unknown): Record<string, any> {
@@ -173,6 +208,9 @@ export async function POST(req: Request) {
     }
 
     const sb = createServerClient(token);
+    if (!sb) {
+      return NextResponse.json({ error: 'Supabase not configured on server' }, { status: 503 });
+    }
     const { data: userData } = await sb.auth.getUser(token);
     if (!userData.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -229,8 +267,26 @@ export async function POST(req: Request) {
 
     const system = buildSystemPrompt(campaign)
       .concat(
+        `\n\n## 8. Estado do Personagem Atual\n` +
+        `Profissão atual: ${membership?.character_data_json?.inferred?.profession || campaign.characterProfession || 'Sem profissão definida'}.\n` +
+        `Saúde: ${membership?.character_data_json?.inferred?.health?.tier || 'HEALTHY'}.\n` +
+        `Inventário atual:\n${Array.isArray(membership?.character_data_json?.inferred?.inventory) && membership.character_data_json.inferred.inventory.length > 0
+          ? membership.character_data_json.inferred.inventory
+              .map((item: any) => {
+                const type = item?.type === 'equipment' ? 'equipamento' : 'consumível';
+                const qty = item?.type === 'consumable' ? ` x${Number(item?.quantity || 0)}` : '';
+                const dur = Number.isFinite(item?.durabilityCurrent) && Number.isFinite(item?.durabilityMax)
+                  ? `, durabilidade ${Number(item.durabilityCurrent)}/${Number(item.durabilityMax)}`
+                  : '';
+                const broken = item?.broken ? ', quebrado' : '';
+                return `- ${String(item?.name || 'Item')} (${type}${qty}${dur}${broken})`;
+              })
+              .join('\n')
+          : '- Inventário vazio.'}\n`
+      )
+      .concat(
         roster.length > 1
-          ? `\n\n## 8. Multiplayer POV\nJogadores ativos: ${roster.map((p) => p.name).join(', ')}.\n- Narre a mesma cena para todos, mas escreva um bloco de POV para cada jogador no formato:\n  "POV - <Nome>: ..."\n- As acoes de um jogador impactam o estado e as consequencias para os demais.\n- Mantenha coesao entre os POVs, evitando contradicoes.\n`
+          ? `\n\n## 9. Multiplayer POV\nJogadores ativos: ${roster.map((p) => p.name).join(', ')}.\n- Narre a mesma cena para todos, mas escreva um bloco de POV para cada jogador no formato:\n  "POV - <Nome>: ..."\n- As acoes de um jogador impactam o estado e as consequencias para os demais.\n- Mantenha coesao entre os POVs, evitando contradicoes.\n`
           : ''
       );
 
@@ -298,6 +354,14 @@ export async function POST(req: Request) {
           name: 'update_character',
           description: 'Update character fields like profession, hp, or inventory when the story changes.',
           parameters: updateCharacterSchema as any,
+        },
+      },
+      {
+        type: 'function' as const,
+        function: {
+          name: 'manage_inventory',
+          description: 'Manage inventory lifecycle: acquire, consume/use, drop, break, repair or set quantity.',
+          parameters: manageInventorySchema as any,
         },
       },
     ];
@@ -452,9 +516,10 @@ export async function POST(req: Request) {
     const message = response.choices?.[0]?.message;
     const text = message?.content || '';
     const toolCalls = normalizeToolCalls(message?.tool_calls);
+    const hasRollToolCall = toolCalls.some((call) => call.name === 'request_roll');
 
     return NextResponse.json({
-      text: text || '',
+      text: hasRollToolCall ? '' : text || '',
       toolCalls,
     });
   } catch (error: any) {

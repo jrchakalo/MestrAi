@@ -47,7 +47,7 @@ export async function GET(req: Request) {
   let lastError: any = null;
   for (const model of models) {
     const url = buildUrl(prompt, model, width, height, seed);
-    const res = await fetch(url);
+    const res = await globalThis.fetch(url, {});
 
     if (res.ok) {
       const contentType = res.headers.get('content-type') || 'image/jpeg';
@@ -63,6 +63,6 @@ export async function GET(req: Request) {
     lastError = res;
   }
 
-  const status = lastError?.status || 502;
+  const status = lastError?.status === 502 ? 502 : 502;
   return NextResponse.json({ error: 'Image generation failed' }, { status });
 }

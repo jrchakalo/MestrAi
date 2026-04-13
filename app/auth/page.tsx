@@ -141,12 +141,13 @@ export default function AuthPage() {
           />
         )}
 
-        <Button onClick={handleAuth} className="w-full mt-4" isLoading={loading}>
+        <Button data-cy="auth-submit" onClick={handleAuth} className="w-full mt-4" isLoading={loading}>
           {authMode === 'LOGIN' ? 'Entrar' : 'Cadastrar'}
         </Button>
 
         <div className="text-center pt-2">
           <button
+            data-cy="auth-switch-mode"
             className="text-purple-400 text-sm hover:text-purple-300 underline"
             onClick={() => setAuthMode(authMode === 'LOGIN' ? 'SIGNUP' : 'LOGIN')}
           >

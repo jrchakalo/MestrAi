@@ -3,6 +3,7 @@ import type { AttributeName, CharacterSheet, HealthTier } from "../types";
 export type Difficulty = "NORMAL" | "HARD" | "VERY_HARD";
 export type DamageSeverity = "LIGHT" | "HEAVY";
 export type RestType = "SHORT" | "LONG";
+export type HealthEvent = "DAMAGE_LIGHT" | "DAMAGE_HEAVY" | "REST_SHORT" | "REST_LONG" | "FORCE_DEAD";
 
 export type RollOutcome =
   | "CRITICAL_FAILURE"
@@ -20,6 +21,22 @@ export interface RollResult {
   outcome: RollOutcome;
   labelPtBr: string;
   message?: string;
+}
+
+export interface HealthTransition {
+  changed: boolean;
+  event: HealthEvent;
+  fromTier: HealthTier;
+  toTier: HealthTier;
+  fromLightDamageCounter: number;
+  toLightDamageCounter: number;
+  becameDead: boolean;
+  summaryPtBr: string;
+}
+
+export interface HealthStateResult {
+  next: CharacterSheet;
+  transition: HealthTransition;
 }
 
 const HEALTH_PENALTY: Record<HealthTier, number> = {
@@ -177,37 +194,76 @@ export function calculateRoll(params: {
 }
 
 export function applyDamage(character: CharacterSheet, severity: DamageSeverity): CharacterSheet {
-  const next = cloneCharacter(character);
-
-  if (next.health.tier === "DEAD") {
-    return next;
-  }
-
-  if (severity === "LIGHT") {
-    next.health.lightDamageCounter = clamp(next.health.lightDamageCounter + 1, 0, 3);
-    if (next.health.lightDamageCounter >= 3) {
-      next.health.lightDamageCounter = 0;
-      next.health.tier = downgradeTier(next.health.tier);
-    }
-    return next;
-  }
-
-  next.health.lightDamageCounter = 0;
-  next.health.tier = downgradeTier(next.health.tier);
-  return next;
+  return applyHealthStateEvent(character, severity === "HEAVY" ? "DAMAGE_HEAVY" : "DAMAGE_LIGHT").next;
 }
 
 export function applyRest(character: CharacterSheet, type: RestType): CharacterSheet {
-  const next = cloneCharacter(character);
+  return applyHealthStateEvent(character, type === "LONG" ? "REST_LONG" : "REST_SHORT").next;
+}
 
-  if (type === "SHORT") {
+export function applyHealthStateEvent(character: CharacterSheet, event: HealthEvent): HealthStateResult {
+  const next = cloneCharacter(character);
+  const fromTier = next.health.tier;
+  const fromLightDamageCounter = next.health.lightDamageCounter;
+
+  if (event === "FORCE_DEAD") {
+    next.health.tier = "DEAD";
     next.health.lightDamageCounter = 0;
-    return next;
+  } else if (next.health.tier !== "DEAD") {
+    if (event === "DAMAGE_LIGHT") {
+      next.health.lightDamageCounter = clamp(next.health.lightDamageCounter + 1, 0, 3);
+      if (next.health.lightDamageCounter >= 3) {
+        next.health.lightDamageCounter = 0;
+        next.health.tier = downgradeTier(next.health.tier);
+      }
+    }
+
+    if (event === "DAMAGE_HEAVY") {
+      next.health.lightDamageCounter = 0;
+      next.health.tier = downgradeTier(next.health.tier);
+    }
+
+    if (event === "REST_SHORT") {
+      next.health.lightDamageCounter = 0;
+    }
+
+    if (event === "REST_LONG") {
+      next.health.lightDamageCounter = 0;
+      next.health.tier = upgradeTier(next.health.tier);
+    }
   }
 
-  next.health.lightDamageCounter = 0;
-  next.health.tier = upgradeTier(next.health.tier);
-  return next;
+  const toTier = next.health.tier;
+  const toLightDamageCounter = next.health.lightDamageCounter;
+  const changed = fromTier !== toTier || fromLightDamageCounter !== toLightDamageCounter;
+  const becameDead = fromTier !== "DEAD" && toTier === "DEAD";
+
+  return {
+    next,
+    transition: {
+      changed,
+      event,
+      fromTier,
+      toTier,
+      fromLightDamageCounter,
+      toLightDamageCounter,
+      becameDead,
+      summaryPtBr: buildHealthSummary(event, fromTier, toTier, toLightDamageCounter),
+    },
+  };
+}
+
+function buildHealthSummary(event: HealthEvent, fromTier: HealthTier, toTier: HealthTier, lightCounter: number): string {
+  const eventText = {
+    DAMAGE_LIGHT: 'Dano leve aplicado',
+    DAMAGE_HEAVY: 'Dano pesado aplicado',
+    REST_SHORT: 'Descanso curto aplicado',
+    REST_LONG: 'Descanso longo aplicado',
+    FORCE_DEAD: 'Morte forçada aplicada',
+  }[event];
+
+  const tierText = `${fromTier} -> ${toTier}`;
+  return `${eventText}. Estado de saúde: ${tierText}. Marcas leves: ${lightCounter}.`;
 }
 
 function downgradeTier(tier: HealthTier): HealthTier {
