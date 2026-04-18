@@ -416,8 +416,11 @@ export const CampaignWizard: React.FC<CampaignWizardProps> = ({ onSave, onCancel
       body: JSON.stringify({ type, payload }),
     });
 
-    if (!res.ok) throw new Error('Suggest request failed');
     const data = await res.json();
+    if (!res.ok) {
+      const message = (data?.error || 'Suggest request failed').toString();
+      throw new Error(`${message} (HTTP ${res.status})`);
+    }
     return (data.text || '').toString();
   };
 

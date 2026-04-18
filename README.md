@@ -6,7 +6,7 @@
       <img src="https://img.shields.io/badge/TypeScript-5.8-3178c6" alt="TypeScript" />
       <img src="https://img.shields.io/badge/Supabase-2.39-3ecf8e" alt="Supabase" />
       <img src="https://img.shields.io/badge/TailwindCSS-3.4-38bdf8" alt="TailwindCSS" />
-      <img src="https://img.shields.io/badge/Groq-API-000000" alt="Groq" />
+      <img src="https://img.shields.io/badge/OpenRouter-API-000000" alt="OpenRouter" />
    </p>
 </div>
 
@@ -27,12 +27,12 @@ MestrAi é um VTT (Virtual Tabletop) narrado por IA com sistema narrativo determ
 - React + TypeScript
 - Supabase (Auth, Realtime, DB)
 - Tailwind CSS
-- Groq API
+- OpenRouter API
 
 ## Requisitos
 - Node.js 18+
 - Projeto Supabase configurado
-- Chave Groq por jogador (BYOK)
+- Chave OpenRouter por jogador (BYOK)
 
 ## Variáveis de ambiente
 Crie um arquivo .env com:
@@ -41,19 +41,26 @@ Crie um arquivo .env com:
 - SUPABASE_SERVICE_ROLE_KEY
 - POLLINATIONS_KEY (opcional)
 
-## Como obter a chave Groq
-1. Acesse https://console.groq.com/keys
-2. Clique em "Create API Key".
+## Como obter a chave OpenRouter
+1. Acesse https://openrouter.ai/keys
+2. Clique em "Create Key".
 3. Copie a chave gerada e configure no app (cada jogador usa sua própria chave).
 
-## Modelos Groq usados
-- llama-3.3-70b-versatile
-- qwen-2.5-72b-instruct
-- llama-3.1-8b-instant
+## Modelos OpenRouter usados
+### Pool do Mestre
+- meta-llama/llama-3.3-70b-instruct:free
+- openai/gpt-oss-120b:free
+- qwen/qwen3-next-80b-a3b-instruct:free
+- openrouter/free
+
+### Pool Rápido
+- meta-llama/llama-3.1-8b-instruct:free
+- google/gemma-2-9b-it:free
+- openrouter/free
 
 ## Rate limits
 Os limites variam por modelo e plano. Em caso de limite atingido, a API responde com HTTP 429 e pode incluir o header `retry-after`, além de `x-ratelimit-*`.
-Referência: https://console.groq.com/docs/rate-limits
+Referência: https://openrouter.ai/docs/rate-limits
 
 ## Como rodar localmente
 1. Instale as dependências: npm install

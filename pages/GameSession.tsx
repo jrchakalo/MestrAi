@@ -141,6 +141,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const resolvingRollRef = useRef(false);
   const turnStateRef = useRef(turnState);
   const introTriggeredTurnsRef = useRef<Set<string>>(new Set());
+  const introPhaseSyncedTurnsRef = useRef<Set<string>>(new Set());
   const submittingTurnActionRef = useRef(false);
   const localSessionKeyRef = useRef(`mestrai:session:${campaign.id}`);
   const deathHandledRef = useRef(false);
@@ -217,6 +218,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const rebuildTurnState = (history: Message[]) => {
     const lastStart = [...history].reverse().find((m) => m.metadata?.action === 'turn_start');
     if (!lastStart) return;
+    const lastStartIndex = history.findIndex((m) => m.id === lastStart.id);
     const turnId = lastStart.metadata?.turn_id;
     if (!turnId) return;
     const order = Array.isArray(lastStart.metadata?.order) ? lastStart.metadata.order : [];
@@ -244,10 +246,26 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       || lastStart.metadata?.phase
       || (actions.length > 0 ? 'player_action' : 'gm_intro');
 
+    const hasIntroNarrationAfterStart = lastStartIndex >= 0
+      ? history.slice(lastStartIndex + 1).some((m) => (
+          m.role === Role.MODEL
+          && !!m.content?.trim()
+          && !m.metadata?.action
+        ))
+      : false;
+
+    const normalizedPhase = (inferredPhase === 'gm_intro' || inferredPhase === 'gm_resolution')
+      ? inferredPhase
+      : 'player_action';
+
+    const phase = normalizedPhase === 'gm_intro' && actions.length === 0 && hasIntroNarrationAfterStart
+      ? 'player_action'
+      : normalizedPhase;
+
     setTurnState({
       active: !lastEnd,
       turnId,
-      phase: inferredPhase === 'gm_intro' || inferredPhase === 'gm_resolution' ? inferredPhase : 'player_action',
+      phase,
       order,
       orderNames,
       currentIndex,
@@ -352,6 +370,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   };
 
   const TOOL_CODE_REGEX = /<tool_code>([\s\S]*?)<\/tool_code>/g;
+  const OPENROUTER_KEY_REGEX = /^sk-or-v1-[a-zA-Z0-9_-]+$/;
 
   const extractToolCodeBlocks = (text: string) => {
     const actions: any[] = [];
@@ -908,6 +927,21 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           setMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
           if (meta?.action) {
             applyTurnMeta(meta);
+          } else if (role === Role.MODEL && msg.content.trim()) {
+            const current = turnStateRef.current;
+            if (current.active && current.phase === 'gm_intro' && current.turnId) {
+              setTurnState((prev) => (
+                prev.active && prev.turnId === current.turnId && prev.phase === 'gm_intro'
+                  ? { ...prev, phase: 'player_action' }
+                  : prev
+              ));
+
+              // Only the GM persists the phase flip once; this avoids reopening intro on reload.
+              if (campaign.ownerId === userId && !introPhaseSyncedTurnsRef.current.has(current.turnId)) {
+                introPhaseSyncedTurnsRef.current.add(current.turnId);
+                postTurnPhase(current.turnId, 'player_action', current.currentIndex).catch(() => null);
+              }
+            }
           }
         }
       )
@@ -1144,7 +1178,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         type: 'system',
         action: 'turn_start',
         turn_id: turnId,
-        phase: 'gm_intro',
+        phase: sorted.length > 1 ? 'gm_intro' : 'player_action',
         order: sorted,
         order_names: orderNames,
         current_index: 0,
@@ -1186,10 +1220,6 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           turn_id: currentTurn.turnId,
       },
     });
-
-    if (campaign.ownerId === userId && campaignStatus === CampaignStatus.ACTIVE) {
-      await startTurnRound(true);
-    }
   };
 
   useEffect(() => {
@@ -1247,7 +1277,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       }
       let effectiveKey = apiKey;
       if (!effectiveKey) {
-        const stored = localStorage.getItem('user_groq_key') || '';
+        const stored = localStorage.getItem('user_openrouter_key') || '';
         effectiveKey = stored.trim();
         if (effectiveKey) {
           setApiKey(effectiveKey);
@@ -1431,6 +1461,9 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       if (data.text && data.text.trim() && !hasImageTool && !hasRollTool) {
         const parsed = extractToolCodeBlocks(data.text);
+        const filteredActions = toolResponse?.name === 'request_roll'
+          ? parsed.actions.filter((action) => normalizeToolAction(action).action !== 'request_roll')
+          : parsed.actions;
         if (parsed.cleaned) {
           const modelMsg: Message = {
             id: crypto.randomUUID(),
@@ -1443,8 +1476,8 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
           await persistMessage(modelMsg);
           didRespond = true;
         }
-        if (parsed.actions.length > 0 && !hasToolCalls) {
-          await processToolCodeActions(parsed.actions, updatedMessages);
+        if (filteredActions.length > 0 && !hasToolCalls) {
+          await processToolCodeActions(filteredActions, updatedMessages);
         }
       }
       if (hasToolCalls) {
@@ -1458,6 +1491,32 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
       console.error('Chat error:', e);
       setToast({ msg: 'Falha de conexão com a IA. Reenvie a ação para nova tentativa.', type: 'error' });
       return { hasToolCalls: false, didRespond: false };
+    }
+  };
+
+  const continueAfterToolExecution = async (call: any, fallbackBaseMessages: Message[], result: any) => {
+    const continuation = await sendChat({
+      baseMessages: latestMessagesRef.current.length > 0 ? latestMessagesRef.current : fallbackBaseMessages,
+      toolResponse: {
+        name: call.name,
+        result,
+        callId: call.id || call.name,
+        args: call.args || {},
+      },
+      autoStartTurn: false,
+    });
+
+    const currentTurn = turnStateRef.current;
+    if (!currentTurn.active || currentTurn.phase !== 'gm_resolution') return;
+    if (!userId || userId !== currentTurn.order[currentTurn.currentIndex]) return;
+
+    if (!continuation?.hasToolCalls && continuation?.didRespond) {
+      await advanceTurnAfterResponse();
+      return;
+    }
+
+    if (!continuation?.hasToolCalls && !continuation?.didRespond && currentTurn.turnId) {
+      await postTurnPhase(currentTurn.turnId, 'player_action', currentTurn.currentIndex);
     }
   };
 
@@ -1487,12 +1546,20 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
             future: 'A historia segue sem o heroi, deixando ecos do que poderia ter sido.',
           }
         );
+        await continueAfterToolExecution(call, baseMessages, {
+          ok: true,
+          type: args.type === 'HEAVY' ? 'HEAVY' : 'LIGHT',
+        });
         return;
       }
 
       if (call.name === 'apply_rest') {
         const args = call.args as { type?: 'SHORT' | 'LONG' };
         await applyHealthEventAndPersist(args.type === 'LONG' ? 'REST_LONG' : 'REST_SHORT');
+        await continueAfterToolExecution(call, baseMessages, {
+          ok: true,
+          type: args.type === 'LONG' ? 'LONG' : 'SHORT',
+        });
         return;
       }
 
@@ -1506,6 +1573,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         const nextMessages = [...baseMessages, sysMsg];
         setMessages(nextMessages);
         await persistMessage(sysMsg);
+        await continueAfterToolExecution(call, nextMessages, { ok: true });
         return;
       }
 
@@ -1544,22 +1612,63 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
 
       if (call.name === 'update_character') {
         const updates = (call.args as any) || {};
+        const inferredAttributes = characterData?.attributes || { VIGOR: 0, DESTREZA: 0, MENTE: 0, PRESENÇA: 0 };
+        const nextAttributes = updates.attributes
+          ? {
+              VIGOR: Number.isFinite(Number(updates.attributes.VIGOR)) ? Number(updates.attributes.VIGOR) : inferredAttributes.VIGOR,
+              DESTREZA: Number.isFinite(Number(updates.attributes.DESTREZA)) ? Number(updates.attributes.DESTREZA) : inferredAttributes.DESTREZA,
+              MENTE: Number.isFinite(Number(updates.attributes.MENTE)) ? Number(updates.attributes.MENTE) : inferredAttributes.MENTE,
+              PRESENÇA: Number.isFinite(Number(updates.attributes.PRESENÇA)) ? Number(updates.attributes.PRESENÇA) : inferredAttributes.PRESENÇA,
+            }
+          : inferredAttributes;
+
+        const nextHealth = updates.health
+          ? {
+              tier: updates.health.tier === 'DEAD' || updates.health.tier === 'CRITICAL' || updates.health.tier === 'INJURED' ? updates.health.tier : 'HEALTHY',
+              lightDamageCounter: Number.isFinite(Number(updates.health.lightDamageCounter))
+                ? Math.max(0, Number(updates.health.lightDamageCounter))
+                : (characterData?.health.lightDamageCounter || 0),
+            }
+          : (characterData?.health || { tier: 'HEALTHY', lightDamageCounter: 0 });
+
         const nextData: CharacterSheet = {
           ...(characterData || {
             name: campaign.characterName,
             appearance: campaign.characterAppearance,
             profession: campaign.characterProfession || 'Sem profissao',
             backstory: campaign.characterBackstory,
-            attributes: { VIGOR: 0, DESTREZA: 0, MENTE: 0, PRESENÇA: 0 },
-            health: { tier: 'HEALTHY', lightDamageCounter: 0 },
+            attributes: inferredAttributes,
+            health: nextHealth,
             inventory: [],
           }),
+          ...(typeof updates.name === 'string' && updates.name.trim() ? { name: updates.name.trim() } : {}),
+          ...(typeof updates.appearance === 'string' && updates.appearance.trim() ? { appearance: updates.appearance.trim() } : {}),
           ...(updates.profession ? { profession: updates.profession } : {}),
+          ...(typeof updates.backstory === 'string' && updates.backstory.trim() ? { backstory: updates.backstory.trim() } : {}),
+          attributes: nextAttributes,
+          health: nextHealth,
           ...(Array.isArray(updates.inventory) ? { inventory: normalizeInventoryPayload(updates.inventory) } : {}),
         };
 
         setCharacterData(nextData);
         await persistCharacter(nextData);
+
+        const shouldRevive = !!updates.revive_character || nextData.health.tier !== 'DEAD';
+        if (userId && shouldRevive) {
+          await supabase
+            .from('campaign_players')
+            .update({
+              character_name: nextData.name,
+              is_dead: false,
+              death_cause: null,
+              death_world_future: null,
+              death_at: null,
+            })
+            .eq('campaign_id', campaign.id)
+            .eq('player_id', userId);
+          setDeathState(null);
+          deathHandledRef.current = false;
+        }
 
         const incomingTier = updates?.health?.tier;
         if (incomingTier === 'DEAD' && !deathHandledRef.current) {
@@ -1567,12 +1676,15 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
             cause: 'Seu estado foi atualizado para MORTO pelos eventos da narrativa.',
             future: 'O mundo reage à sua ausência, e novos rumos surgem da sua queda.',
           }, nextData);
+        } else if (incomingTier !== 'DEAD' && shouldRevive) {
+          setToast({ msg: `Ficha atualizada: ${nextData.name}.`, type: 'success' });
         }
 
         if (Array.isArray(updates.inventory)) {
           const summary = `Inventário sincronizado pelo mestre. Itens atuais: ${nextData.inventory.length}.`;
           await postInventoryEvent(summary, 'sync_full', nextData.inventory);
         }
+        await continueAfterToolExecution(call, baseMessages, { ok: true, updated: true });
         return;
       }
 
@@ -1599,8 +1711,13 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         };
 
         const changed = await applyInventoryChange(action);
-        if (!changed.changed) return;
-        setToast({ msg: 'Inventário atualizado.', type: 'success' });
+        if (changed.changed) {
+          setToast({ msg: 'Inventário atualizado.', type: 'success' });
+        }
+        await continueAfterToolExecution(call, baseMessages, {
+          ok: changed.changed,
+          summary: changed.summary,
+        });
         return;
       }
     }
@@ -1772,7 +1889,24 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
     try {
       const result = await sendChat({
         baseMessages: nextMessages,
-        toolResponse: { name: 'request_roll', result: rollResult.total ?? total, callId },
+        toolResponse: {
+          name: 'request_roll',
+          result: {
+            total: rollResult.total ?? total,
+            naturalRoll: rollResult.naturalRoll || total,
+            outcome: rollResult.outcome,
+            label: rollResult.labelPtBr,
+            attribute: req.attribute,
+            difficulty,
+            isProfessionRelevant,
+          },
+          callId,
+          args: {
+            attribute: req.attribute,
+            difficulty,
+            is_profession_relevant: isProfessionRelevant,
+          },
+        },
         autoStartTurn: !turnState.active,
       });
       const currentTurn = turnStateRef.current;
@@ -1893,6 +2027,10 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
   const handleUpdateKey = async () => {
       const trimmed = newKeyInput.trim();
       if (!trimmed) return;
+      if (!OPENROUTER_KEY_REGEX.test(trimmed)) {
+        alert('Formato inválido. Use uma chave OpenRouter começando com sk-or-v1-.');
+        return;
+      }
       
       try {
         const res = await fetch('/api/validate-key', {
@@ -1904,7 +2042,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
         });
         const data = await res.json();
         if (data.ok) {
-          localStorage.setItem('user_groq_key', trimmed);
+          localStorage.setItem('user_openrouter_key', trimmed);
           setApiKey(trimmed);
           setShowKeyUpdateModal(false);
           setNewKeyInput('');
@@ -2122,7 +2260,7 @@ export const GameSession: React.FC<GameSessionProps> = ({ campaign, apiKey: init
                       </p>
                   </div>
                   <Input 
-                      placeholder="Nova API Key" 
+                      placeholder="sk-or-v1-..." 
                       value={newKeyInput} 
                       onChange={(e) => setNewKeyInput(e.target.value)}
                   />

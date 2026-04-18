@@ -1,14 +1,23 @@
-import { MODELS, withModelFallback } from '@/lib/ai/modelPool'
+import { FAST_MODELS, MASTER_MODELS, MODELS, withModelFallback } from '@/lib/ai/modelPool'
 
-describe('modelPool - MODELS', () => {
-  it('should have 3 models defined', () => {
-    expect(MODELS).toHaveLength(3)
+describe('modelPool - model pools', () => {
+  it('should expose the master pool in priority order', () => {
+    expect(MASTER_MODELS).toHaveLength(4)
+    expect(MASTER_MODELS[0]).toBe('meta-llama/llama-3.3-70b-instruct:free')
+    expect(MASTER_MODELS[1]).toBe('openai/gpt-oss-120b:free')
+    expect(MASTER_MODELS[2]).toBe('qwen/qwen3-next-80b-a3b-instruct:free')
+    expect(MASTER_MODELS[3]).toBe('openrouter/free')
   })
 
-  it('should have models in priority order', () => {
-    expect(MODELS[0]).toBe('llama-3.3-70b-versatile')
-    expect(MODELS[1]).toBe('qwen-2.5-72b-instruct')
-    expect(MODELS[2]).toBe('llama-3.1-8b-instant')
+  it('should expose the fast pool in priority order', () => {
+    expect(FAST_MODELS).toHaveLength(3)
+    expect(FAST_MODELS[0]).toBe('meta-llama/llama-3.1-8b-instruct:free')
+    expect(FAST_MODELS[1]).toBe('google/gemma-2-9b-it:free')
+    expect(FAST_MODELS[2]).toBe('openrouter/free')
+  })
+
+  it('should keep MODELS as an alias to the master pool', () => {
+    expect(MODELS).toBe(MASTER_MODELS)
   })
 })
 
@@ -24,13 +33,13 @@ describe('modelPool - withModelFallback', () => {
 
     expect(result).toBe('success')
     expect(handler).toHaveBeenCalledTimes(1)
-    expect(handler).toHaveBeenCalledWith('llama-3.3-70b-versatile')
-    expect(modelUsed).toBe('llama-3.3-70b-versatile')
+    expect(handler).toHaveBeenCalledWith(MASTER_MODELS[0])
+    expect(modelUsed).toBe(MASTER_MODELS[0])
   })
 
   it('should fallback to second model on failure', async () => {
     const handler = jest.fn(async (model: string) => {
-      if (model === 'llama-3.3-70b-versatile') {
+      if (model === MASTER_MODELS[0]) {
         throw new Error('First model failed')
       }
       return 'success'
@@ -40,103 +49,90 @@ describe('modelPool - withModelFallback', () => {
 
     expect(result).toBe('success')
     expect(handler).toHaveBeenCalledTimes(2)
-    expect(handler).toHaveBeenNthCalledWith(1, 'llama-3.3-70b-versatile')
-    expect(handler).toHaveBeenNthCalledWith(2, 'qwen-2.5-72b-instruct')
+    expect(handler).toHaveBeenNthCalledWith(1, MASTER_MODELS[0])
+    expect(handler).toHaveBeenNthCalledWith(2, MASTER_MODELS[1])
   })
 
-  it('should fallback to third model on multiple failures', async () => {
+  it('should continue through retryable errors until a later model succeeds', async () => {
     const handler = jest.fn(async (model: string) => {
-      if (model !== 'llama-3.1-8b-instant') {
-        throw new Error(`${model} failed`)
+      if (model === MASTER_MODELS[0]) {
+        const error: any = new Error('Rate limited')
+        error.status = 429
+        throw error
       }
-      return 'success from llama-3.1-8b-instant'
+      if (model === MASTER_MODELS[1]) {
+        const error: any = new Error('Service unavailable')
+        error.status = 503
+        throw error
+      }
+      if (model === MASTER_MODELS[2]) {
+        const error: any = new Error('Bad gateway')
+        error.status = 502
+        throw error
+      }
+      return 'success from safety net'
     })
 
     const result = await withModelFallback(handler)
 
-    expect(result).toBe('success from llama-3.1-8b-instant')
-    expect(handler).toHaveBeenCalledTimes(3)
-    expect(handler).toHaveBeenLastCalledWith('llama-3.1-8b-instant')
+    expect(result).toBe('success from safety net')
+    expect(handler).toHaveBeenCalledTimes(4)
+    expect(handler).toHaveBeenNthCalledWith(1, MASTER_MODELS[0])
+    expect(handler).toHaveBeenNthCalledWith(2, MASTER_MODELS[1])
+    expect(handler).toHaveBeenNthCalledWith(3, MASTER_MODELS[2])
+    expect(handler).toHaveBeenNthCalledWith(4, MASTER_MODELS[3])
   })
 
   it('should throw error if all models fail', async () => {
     const handler = jest.fn(async (model: string) => {
-      throw new Error(`${model} failed`)
+      const error: any = new Error(`${model} failed`)
+      error.status = 429
+      throw error
     })
 
     await expect(withModelFallback(handler)).rejects.toThrow('failed')
-    expect(handler).toHaveBeenCalledTimes(3)
-  })
-
-  it('should propagate 429 error immediately', async () => {
-    const error429: any = new Error('Rate limited')
-    error429.status = 429
-
-    const handler = jest.fn(async (model: string) => {
-      throw error429
-    })
-
-    await expect(withModelFallback(handler)).rejects.toThrow()
-    expect(handler).toHaveBeenCalledTimes(1)
-  })
-
-  it('should propagate 429 code error immediately', async () => {
-    const error429: any = new Error('Rate limited')
-    error429.code = 429
-
-    const handler = jest.fn(async (model: string) => {
-      throw error429
-    })
-
-    await expect(withModelFallback(handler)).rejects.toThrow()
-    expect(handler).toHaveBeenCalledTimes(1)
+    expect(handler).toHaveBeenCalledTimes(4)
   })
 
   it('should track model index by key', async () => {
     const handler = jest.fn(async (model: string) => {
-      if (model === 'llama-3.3-70b-versatile') {
+      if (model === MASTER_MODELS[0]) {
         throw new Error('First model failed')
       }
       return 'success'
     })
 
-    // First call with key: tries first two models
     await withModelFallback(handler, { key: 'user-123' })
     expect(handler).toHaveBeenCalledTimes(2)
 
-    // Reset mock
     handler.mockClear()
     handler.mockImplementation(async (model: string) => 'success')
 
-    // Second call with same key: should start from second model
     await withModelFallback(handler, { key: 'user-123' })
     expect(handler).toHaveBeenCalledTimes(1)
-    expect(handler).toHaveBeenCalledWith('qwen-2.5-72b-instruct')
+    expect(handler).toHaveBeenCalledWith(MASTER_MODELS[1])
   })
 
   it('should remember best model per key', async () => {
     const handler = jest.fn(async (model: string) => {
-      if (model === 'llama-3.3-70b-versatile') {
+      if (model === MASTER_MODELS[0]) {
         throw new Error('First model failed')
       }
-      if (model === 'qwen-2.5-72b-instruct') {
+      if (model === MASTER_MODELS[1]) {
         throw new Error('Second model failed')
       }
       return 'success'
     })
 
-    // First call: tries all three models, last one succeeds
     await withModelFallback(handler, { key: 'user-456' })
     expect(handler).toHaveBeenCalledTimes(3)
 
-    // Reset mock
     handler.mockClear()
     handler.mockImplementation(async (model: string) => 'success')
 
-    // Second call with same key: should start from third model (the last successful one)
     await withModelFallback(handler, { key: 'user-456' })
     expect(handler).toHaveBeenCalledTimes(1)
-    expect(handler).toHaveBeenCalledWith('llama-3.1-8b-instant')
+    expect(handler).toHaveBeenCalledWith(MASTER_MODELS[2])
   })
 
   it('should reset to first model on all failures with key', async () => {
@@ -144,60 +140,51 @@ describe('modelPool - withModelFallback', () => {
       throw new Error(`${model} failed`)
     })
 
-    // First call: all models fail
     await expect(withModelFallback(handler, { key: 'user-789' })).rejects.toThrow()
-    expect(handler).toHaveBeenCalledTimes(3)
+    expect(handler).toHaveBeenCalledTimes(4)
 
-    // Reset mock
     handler.mockClear()
     handler.mockImplementation(async (model: string) => 'success')
 
-    // Second call with same key: should restart from first model
     await withModelFallback(handler, { key: 'user-789' })
     expect(handler).toHaveBeenCalledTimes(1)
-    expect(handler).toHaveBeenCalledWith('llama-3.3-70b-versatile')
+    expect(handler).toHaveBeenCalledWith(MASTER_MODELS[0])
   })
 
   it('should support different keys independently', async () => {
     const handler1 = jest.fn(async (model: string) => {
-      if (model === 'llama-3.3-70b-versatile') {
+      if (model === MASTER_MODELS[0]) {
         throw new Error('Failed')
       }
       return 'success'
     })
 
     const handler2 = jest.fn(async (model: string) => {
-      if (model !== 'llama-3.1-8b-instant') {
+      if (model !== MASTER_MODELS[2]) {
         throw new Error('Failed')
       }
       return 'success'
     })
 
-    // First user: best model is second
     await withModelFallback(handler1, { key: 'user-a' })
-
-    // Second user: best model is third
     await withModelFallback(handler2, { key: 'user-b' })
 
-    // Clear mocks and try again
     handler1.mockClear()
     handler1.mockImplementation(async () => 'success')
 
     handler2.mockClear()
     handler2.mockImplementation(async () => 'success')
 
-    // First user should use second model
     await withModelFallback(handler1, { key: 'user-a' })
-    expect(handler1).toHaveBeenCalledWith('qwen-2.5-72b-instruct')
+    expect(handler1).toHaveBeenCalledWith(MASTER_MODELS[1])
 
-    // Second user should use third model
     await withModelFallback(handler2, { key: 'user-b' })
-    expect(handler2).toHaveBeenCalledWith('llama-3.1-8b-instant')
+    expect(handler2).toHaveBeenCalledWith(MASTER_MODELS[2])
   })
 
   it('should return data correctly from successful call', async () => {
     const testData = { message: 'Test response', tokens: 100 }
-    const handler = jest.fn(async (model: string) => testData)
+    const handler = jest.fn(async () => testData)
 
     const result = await withModelFallback(handler)
 
@@ -206,13 +193,12 @@ describe('modelPool - withModelFallback', () => {
 
   it('should handle concurrent calls without interference', async () => {
     const handler = jest.fn(async (model: string) => {
-      if (model === 'llama-3.3-70b-versatile') {
+      if (model === MASTER_MODELS[0]) {
         throw new Error('First model failed')
       }
       return 'success'
     })
 
-    // Run multiple concurrent calls
     const results = await Promise.all([
       withModelFallback(handler),
       withModelFallback(handler),

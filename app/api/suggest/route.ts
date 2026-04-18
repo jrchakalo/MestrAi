@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import Groq from 'groq-sdk';
 import { z } from 'zod';
 import { pickApiKey } from '../../../lib/ai/keyPool';
 import { isRateLimited } from '../../../lib/ai/rateLimit';
-import { withModelFallback } from '../../../lib/ai/modelPool';
+import { FAST_MODELS, withModelFallback } from '../../../lib/ai/modelPool';
+import { createOpenRouterClient } from '../../../lib/ai/openRouter';
 
 const bodySchema = z.object({
   type: z.string(),
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     } catch {
       return NextResponse.json({ error: 'Missing API key' }, { status: 401 });
     }
-    const ai = new Groq({ apiKey });
+    const ai = createOpenRouterClient(apiKey);
     const result = await withModelFallback(
       (model) =>
         ai.chat.completions.create({
@@ -80,12 +80,31 @@ export async function POST(req: Request) {
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.7,
         }),
-      { key: `suggest:${parsed.data.type}` }
+      { key: `suggest:${parsed.data.type}`, models: FAST_MODELS }
     );
 
     const text = result.choices?.[0]?.message?.content || '';
     return NextResponse.json({ text });
-  } catch (error) {
+  } catch (error: any) {
+    const status = error?.status || error?.response?.status || error?.code;
+    if (status === 429) {
+      return NextResponse.json(
+        { error: 'Modelos gratuitos temporariamente lotados. Tente novamente em instantes.' },
+        { status: 429 }
+      );
+    }
+    if (status === 401 || status === 403) {
+      return NextResponse.json(
+        { error: 'Chave OpenRouter inválida ou sem permissão.' },
+        { status: 401 }
+      );
+    }
+    if (status === 404) {
+      return NextResponse.json(
+        { error: 'Modelo de sugestão indisponível no provedor no momento.' },
+        { status: 503 }
+      );
+    }
     console.error('Suggest API error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

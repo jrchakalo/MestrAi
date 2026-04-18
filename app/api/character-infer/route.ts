@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import Groq from "groq-sdk";
 import { z } from "zod";
 import { pickApiKey } from "../../../lib/ai/keyPool";
 import { isRateLimited } from "../../../lib/ai/rateLimit";
-import { withModelFallback } from "../../../lib/ai/modelPool";
+import { FAST_MODELS, withModelFallback } from "../../../lib/ai/modelPool";
+import { createOpenRouterClient } from "../../../lib/ai/openRouter";
 import { sanitizeAttributes } from "../../../lib/gameRules";
 import type { AttributeName, CharacterSheet, InventoryItem } from "../../../types";
 
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
     }
 
     const { genero, tom, magia, tech, name, appearance, backstory, profession } = parsed.data;
-    const ai = new Groq({ apiKey });
+    const ai = createOpenRouterClient(apiKey);
 
     const prompt = `Voce esta criando uma ficha para um RPG narrativo deterministico.
 
@@ -151,7 +151,7 @@ REGRAS OBRIGATORIAS:
           messages: [{ role: "user", content: prompt }],
           temperature: 0.6,
         }),
-      { key: `infer:${name}` }
+      { key: `infer:${name}`, models: FAST_MODELS }
     );
 
     const raw = result.choices?.[0]?.message?.content || "";

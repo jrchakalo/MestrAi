@@ -1,20 +1,22 @@
 import { POST } from '@/app/api/character-infer/route'
-import Groq from 'groq-sdk'
 import * as keyPool from '@/lib/ai/keyPool'
 import * as rateLimit from '@/lib/ai/rateLimit'
 import * as modelPool from '@/lib/ai/modelPool'
+import * as openRouter from '@/lib/ai/openRouter'
 import { mockDeep, mockReset } from 'jest-mock-extended'
 
-jest.mock('groq-sdk')
 jest.mock('@/lib/ai/keyPool')
 jest.mock('@/lib/ai/rateLimit')
 jest.mock('@/lib/ai/modelPool')
+jest.mock('@/lib/ai/openRouter')
 
-const MockGroq = Groq as jest.MockedClass<typeof Groq>
 const mockPickApiKey = keyPool.pickApiKey as jest.MockedFunction<typeof keyPool.pickApiKey>
 const mockIsRateLimited = rateLimit.isRateLimited as jest.MockedFunction<typeof rateLimit.isRateLimited>
 const mockWithModelFallback = modelPool.withModelFallback as jest.MockedFunction<
   typeof modelPool.withModelFallback
+>
+const mockCreateOpenRouterClient = openRouter.createOpenRouterClient as jest.MockedFunction<
+  typeof openRouter.createOpenRouterClient
 >
 
 function createRequest(
@@ -62,8 +64,15 @@ const validCharacterOutput = {
 
 describe('POST /api/character-infer', () => {
   beforeEach(() => {
-    mockReset(MockGroq)
+    mockCreateOpenRouterClient.mockReset()
     jest.clearAllMocks()
+    mockCreateOpenRouterClient.mockReturnValue({
+      chat: {
+        completions: {
+          create: jest.fn(),
+        },
+      },
+    } as any)
   })
 
   describe('Input Validation', () => {
@@ -648,8 +657,8 @@ Good luck!`,
       expect(data.error).toBe('Server error')
     })
 
-    it('should handle Groq errors gracefully', async () => {
-      const error = new Error('Groq API error')
+    it('should handle OpenRouter errors gracefully', async () => {
+      const error = new Error('OpenRouter API error')
       ;(error as any).status = 503
 
       mockWithModelFallback.mockRejectedValue(error)
@@ -692,7 +701,7 @@ Good luck!`,
       expect(data.warnings).toEqual([])
     })
 
-    it('should pass campaign context to Groq prompt', async () => {
+    it('should pass campaign context to OpenRouter prompt', async () => {
       mockPickApiKey.mockReturnValue('valid-api-key')
       mockIsRateLimited.mockResolvedValue(false)
       mockWithModelFallback.mockResolvedValue({

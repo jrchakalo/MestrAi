@@ -1,20 +1,22 @@
 import { POST } from '@/app/api/suggest/route'
-import Groq from 'groq-sdk'
 import * as keyPool from '@/lib/ai/keyPool'
 import * as rateLimit from '@/lib/ai/rateLimit'
 import * as modelPool from '@/lib/ai/modelPool'
+import * as openRouter from '@/lib/ai/openRouter'
 import { mockReset } from 'jest-mock-extended'
 
-jest.mock('groq-sdk')
 jest.mock('@/lib/ai/keyPool')
 jest.mock('@/lib/ai/rateLimit')
 jest.mock('@/lib/ai/modelPool')
+jest.mock('@/lib/ai/openRouter')
 
-const MockGroq = Groq as jest.MockedClass<typeof Groq>
 const mockPickApiKey = keyPool.pickApiKey as jest.MockedFunction<typeof keyPool.pickApiKey>
 const mockIsRateLimited = rateLimit.isRateLimited as jest.MockedFunction<typeof rateLimit.isRateLimited>
 const mockWithModelFallback = modelPool.withModelFallback as jest.MockedFunction<
   typeof modelPool.withModelFallback
+>
+const mockCreateOpenRouterClient = openRouter.createOpenRouterClient as jest.MockedFunction<
+  typeof openRouter.createOpenRouterClient
 >
 
 function createRequest(
@@ -36,10 +38,17 @@ function createRequest(
 
 describe('POST /api/suggest', () => {
   beforeEach(() => {
-    mockReset(MockGroq)
+    mockCreateOpenRouterClient.mockReset()
     jest.clearAllMocks()
     mockPickApiKey.mockReturnValue('valid-api-key')
     mockIsRateLimited.mockResolvedValue(false)
+    mockCreateOpenRouterClient.mockReturnValue({
+      chat: {
+        completions: {
+          create: jest.fn(),
+        },
+      },
+    } as any)
   })
 
   describe('Input Validation', () => {
@@ -50,9 +59,11 @@ describe('POST /api/suggest', () => {
         body: 'invalid json',
       })
 
-      expect(async () => {
-        await POST(req)
-      }).rejects.toThrow()
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(data.error).toBe('Server error')
     })
 
     it('should return 400 for missing type field', async () => {
@@ -401,9 +412,72 @@ describe('POST /api/suggest', () => {
   })
 
   describe('Error Handling', () => {
-    it('should handle Groq errors', async () => {
+    it('should return 429 when upstream is rate limited', async () => {
+      const error = new Error('Rate limit exceeded')
+      ;(error as any).status = 429
+      mockWithModelFallback.mockRejectedValue(error)
+
+      const req = createRequest({
+        type: 'suggestTitle',
+        payload: {
+          genero: 'Fantasy',
+          tom: 'Epic',
+          magia: 'High',
+          tech: 'Medieval',
+        },
+      })
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(429)
+      expect(data.error).toContain('lotados')
+    })
+
+    it('should return 401 for invalid key/permission errors', async () => {
+      const error = new Error('Unauthorized')
+      ;(error as any).status = 401
+      mockWithModelFallback.mockRejectedValue(error)
+
+      const req = createRequest({
+        type: 'suggestTitle',
+        payload: {
+          genero: 'Fantasy',
+          tom: 'Epic',
+          magia: 'High',
+          tech: 'Medieval',
+        },
+      })
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(401)
+      expect(data.error).toContain('OpenRouter')
+    })
+
+    it('should return 503 when selected model is unavailable', async () => {
+      const error = new Error('Model unavailable')
+      ;(error as any).status = 404
+      mockWithModelFallback.mockRejectedValue(error)
+
+      const req = createRequest({
+        type: 'suggestTitle',
+        payload: {
+          genero: 'Fantasy',
+          tom: 'Epic',
+          magia: 'High',
+          tech: 'Medieval',
+        },
+      })
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(503)
+      expect(data.error).toContain('indisponível')
+    })
+
+    it('should handle OpenRouter errors', async () => {
       mockWithModelFallback.mockRejectedValue(
-        new Error('Groq API error')
+        new Error('OpenRouter API error')
       )
 
       const req = createRequest({
