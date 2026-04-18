@@ -20,7 +20,7 @@ export default function CampaignSessionPage() {
   useEffect(() => {
     const load = async () => {
       if (!campaignId) return;
-      const key = localStorage.getItem('user_groq_key') || '';
+      const key = localStorage.getItem('user_openrouter_key') || '';
       setApiKey(key);
 
       const { data: sessionData } = await supabase.auth.getSession();

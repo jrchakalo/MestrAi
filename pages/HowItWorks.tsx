@@ -22,7 +22,7 @@ export const HowItWorks: React.FC<HowItWorksProps> = ({ onBack }) => {
            <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
               <h3 className="text-2xl font-bold text-purple-400 mb-4">1. O Narrador (Cérebro)</h3>
               <p className="text-slate-300 leading-relaxed">
-                Usamos uma Inteligência Artificial avançada (Groq) treinada para agir como um Mestre de RPG. Ela lê suas ações, improvisa a história na hora e nunca se cansa, lembrando de tudo o que aconteceu na sua aventura.
+                Usamos uma Inteligência Artificial avançada (OpenRouter) treinada para agir como um Mestre de RPG. Ela lê suas ações, improvisa a história na hora e nunca se cansa, lembrando de tudo o que aconteceu na sua aventura.
               </p>
            </div>
            
@@ -43,7 +43,7 @@ export const HowItWorks: React.FC<HowItWorksProps> = ({ onBack }) => {
            <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
               <h3 className="text-2xl font-bold text-purple-400 mb-4">4. Sua Chave, Seu Controle</h3>
               <p className="text-slate-300 leading-relaxed">
-                Para garantir privacidade e controle no uso da inteligência, você conecta sua própria chave da Groq (é grátis e fácil de gerar). Nós não lemos suas conversas e você joga o quanto quiser sem pagar mensalidade para a plataforma.
+                Para garantir privacidade e controle no uso da inteligência, você conecta sua própria chave do OpenRouter. A plataforma prioriza modelos FREE, então você pode jogar sem custo e sem mensalidade; créditos só são necessários se optar por modelos pagos.
               </p>
            </div>
         </div>

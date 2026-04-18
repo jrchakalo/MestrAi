@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import Groq from 'groq-sdk';
-import type { ChatCompletionMessageParam, ChatCompletionTool } from 'groq-sdk/resources/chat/completions';
+import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions';
 import { z } from 'zod';
 import { pickApiKey } from '../../../lib/ai/keyPool';
 import { buildSystemPrompt } from '../../../lib/ai/systemPrompt';
 import { isRateLimited } from '../../../lib/ai/rateLimit';
 import { withModelFallback } from '../../../lib/ai/modelPool';
+import { createOpenRouterClient } from '../../../lib/ai/openRouter';
 import { Campaign, Message, Role } from '../../../types';
 import { createAdminClient, createServerClient } from '../../../lib/supabase/server';
 
@@ -64,7 +64,19 @@ const triggerGameOverSchema = {
 const updateCharacterSchema = {
   type: 'object',
   properties: {
+    name: { type: 'string' },
+    appearance: { type: 'string' },
+    backstory: { type: 'string' },
     profession: { type: 'string' },
+    attributes: {
+      type: 'object',
+      properties: {
+        VIGOR: { type: 'number' },
+        DESTREZA: { type: 'number' },
+        MENTE: { type: 'number' },
+        PRESENÇA: { type: 'number' },
+      },
+    },
     health: {
       type: 'object',
       properties: {
@@ -72,6 +84,7 @@ const updateCharacterSchema = {
         lightDamageCounter: { type: 'number' },
       },
     },
+    revive_character: { type: 'boolean' },
     inventory: {
       type: 'array',
       items: {
@@ -163,9 +176,93 @@ function extractRetryAfterSeconds(error: any): number | null {
   return null;
 }
 
+type RollOutcomeCode =
+  | 'CRITICAL_FAILURE'
+  | 'CRITICAL_SUCCESS'
+  | 'FALHA_GRAVE'
+  | 'FALHA_LEVE'
+  | 'SUCESSO_COM_CUSTO'
+  | 'SUCESSO_TOTAL'
+  | 'IMPOSSIVEL'
+  | null;
+
+function getRollOutcomeContext(toolResponse?: { name: string; result?: unknown }) {
+  if (!toolResponse || toolResponse.name !== 'request_roll') {
+    return { isRollResolution: false, rollOutcome: null as RollOutcomeCode, rollLabel: null as string | null };
+  }
+  const rollResult = typeof toolResponse.result === 'object' && toolResponse.result
+    ? (toolResponse.result as Record<string, any>)
+    : null;
+  const rollOutcome = rollResult && typeof rollResult.outcome === 'string'
+    ? (rollResult.outcome as RollOutcomeCode)
+    : null;
+  const rollLabel = rollResult && typeof rollResult.label === 'string'
+    ? rollResult.label
+    : null;
+  return { isRollResolution: true, rollOutcome, rollLabel };
+}
+
+function shouldRewriteRollNarrative(params: { rollOutcome: RollOutcomeCode; text: string }) {
+  const { rollOutcome, text } = params;
+  if (!rollOutcome) return false;
+  const normalized = (text || '').toLowerCase();
+  if (!normalized.trim()) return false;
+
+  const positiveSuccessTerms = [
+    'perfeito',
+    'impecavel',
+    'impecável',
+    'sem dificuldade',
+    'sem esforco',
+    'sem esforço',
+    'aterrissa com precisão',
+    'aterrissa com precisao',
+    'execução impecável',
+    'execucao impecavel',
+    'dominio total',
+    'domínio total',
+  ];
+
+  const failureOrCostTerms = [
+    'falha',
+    'tropec',
+    'escorreg',
+    'perde o equilibrio',
+    'perde o equilíbrio',
+    'dor',
+    'queima',
+    'arranha',
+    'custo',
+    'complica',
+    'consequencia',
+    'consequência',
+    'prejuizo',
+    'prejuízo',
+  ];
+
+  const successTerms = ['consegue', 'bem-suced', 'sucesso', 'acerta'];
+  const clearCostTerms = ['mas', 'porem', 'porém', 'com custo', 'em troca', 'trade-off'];
+
+  const hasPositiveSuccess = positiveSuccessTerms.some((t) => normalized.includes(t));
+  const hasFailureOrCost = failureOrCostTerms.some((t) => normalized.includes(t));
+  const hasSuccess = successTerms.some((t) => normalized.includes(t));
+  const hasCost = clearCostTerms.some((t) => normalized.includes(t));
+
+  if (rollOutcome === 'FALHA_LEVE' || rollOutcome === 'FALHA_GRAVE' || rollOutcome === 'CRITICAL_FAILURE') {
+    return hasPositiveSuccess && !hasFailureOrCost;
+  }
+
+  if (rollOutcome === 'SUCESSO_COM_CUSTO') {
+    return hasSuccess && !hasCost;
+  }
+
+  return false;
+}
+
 const bodySchema = z.object({
   campaign: z.custom<Campaign>(),
   messages: z.array(z.custom<Message>()),
+  sim_mode: z.boolean().optional(),
   input: z.string().optional(),
   toolResponse: z
     .object({
@@ -177,21 +274,137 @@ const bodySchema = z.object({
     .optional(),
 });
 
+interface BaselineTelemetryInsert {
+  campaign_id: string;
+  turn_number: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  generation_latency_ms: number;
+  messages_truncated: number;
+}
+
+const DEFAULT_CONTEXT_CHAR_LIMIT = 28000;
+const RESERVED_COMPLETION_CHARS = 4000;
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.floor(parsed);
+}
+
+function estimateMessageChars(message: ChatCompletionMessageParam): number {
+  const base = 24;
+  const roleLen = typeof message.role === 'string' ? message.role.length : 6;
+  const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content ?? '');
+  const toolCalls = Array.isArray((message as any).tool_calls)
+    ? JSON.stringify((message as any).tool_calls).length
+    : 0;
+  const toolCallId = typeof (message as any).tool_call_id === 'string' ? (message as any).tool_call_id.length : 0;
+  return base + roleLen + content.length + toolCalls + toolCallId;
+}
+
+function estimateMessagesChars(messages: ChatCompletionMessageParam[]): number {
+  return messages.reduce((sum, message) => sum + estimateMessageChars(message), 0);
+}
+
+function applyStrictSlidingWindow(params: {
+  systemPrompt: string;
+  history: ChatCompletionMessageParam[];
+  input?: string;
+  toolResponse?: { name: string; result?: unknown; callId?: string; args?: Record<string, unknown> };
+  contextCharLimit: number;
+}) {
+  const { systemPrompt, input, toolResponse, contextCharLimit } = params;
+  const trimmedHistory = [...params.history];
+
+  const pendingMessages: ChatCompletionMessageParam[] = [];
+  if (toolResponse) {
+    const toolCallId = toolResponse.callId || `call_${toolResponse.name}`;
+    pendingMessages.push(
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: toolCallId,
+            type: 'function',
+            function: {
+              name: toolResponse.name,
+              arguments: JSON.stringify(toolResponse.args || {}),
+            },
+          },
+        ],
+      } as ChatCompletionMessageParam,
+      {
+        role: 'tool',
+        tool_call_id: toolCallId,
+        content: JSON.stringify(toolResponse.result ?? ''),
+      } as ChatCompletionMessageParam
+    );
+  } else if (input && input.trim().length > 0) {
+    pendingMessages.push({ role: 'user', content: input });
+  }
+
+  const estimateWithHistory = () => {
+    const messages = [{ role: 'system', content: systemPrompt } as ChatCompletionMessageParam, ...trimmedHistory, ...pendingMessages];
+    return estimateMessagesChars(messages) + RESERVED_COMPLETION_CHARS;
+  };
+
+  let dropped = 0;
+  while (trimmedHistory.length > 0 && estimateWithHistory() > contextCharLimit) {
+    const dropCount = trimmedHistory.length >= 2 ? 2 : 1;
+    trimmedHistory.splice(0, dropCount);
+    dropped += dropCount;
+  }
+
+  return { trimmedHistory, messagesTruncated: dropped };
+}
+
+function inferTurnNumber(messages: Message[], input?: string): number {
+  const baseTurns = messages.filter((message) => message.role === Role.USER).length;
+  const hasPendingInput = !!input && input.trim().length > 0;
+  return baseTurns + (hasPendingInput ? 1 : 0);
+}
+
+async function writeBaselineTelemetry(payload: BaselineTelemetryInsert): Promise<void> {
+  const admin = createAdminClient();
+  if (!admin) return;
+  try {
+    const query = admin.from('baseline_telemetry') as any;
+    if (!query || typeof query.insert !== 'function') return;
+    await query.insert(payload);
+  } catch (error) {
+    console.error('baseline_telemetry insert failed:', error);
+  }
+}
+
 function mapRole(role: Role): 'user' | 'assistant' | 'system' {
   if (role === Role.USER) return 'user';
   if (role === Role.MODEL) return 'assistant';
   return 'system';
 }
 
+function resolveModelTier(model: string, simMode: boolean) {
+  return simMode ? model.replace(/:free$/, '') : model;
+}
+
 export async function POST(req: Request) {
   try {
+    const internalSimSecret = req.headers.get('x-sim-secret') || '';
+    const isInternalSim =
+      !!process.env.SIM_LOOP_SECRET &&
+      internalSimSecret.length > 0 &&
+      internalSimSecret === process.env.SIM_LOOP_SECRET;
+
     const json = await req.json();
     const parsed = bodySchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const { campaign, messages, input, toolResponse } = parsed.data;
+    const { campaign, messages, sim_mode, input, toolResponse } = parsed.data;
+    const isSimMode = sim_mode === true;
     const userKey = req.headers.get('x-custom-api-key') || undefined;
     let apiKey: string;
     try {
@@ -199,26 +412,32 @@ export async function POST(req: Request) {
     } catch {
       return NextResponse.json({ error: 'Missing API key' }, { status: 401 });
     }
-    const ai = new Groq({ apiKey });
+    const ai = createOpenRouterClient(apiKey);
 
     const authHeader = req.headers.get('authorization') || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-    if (!token) {
+
+    if (!isInternalSim && !token) {
       return NextResponse.json({ error: 'Missing auth token' }, { status: 401 });
     }
 
-    const sb = createServerClient(token);
+    const sb = isInternalSim ? createAdminClient() : createServerClient(token);
     if (!sb) {
       return NextResponse.json({ error: 'Supabase not configured on server' }, { status: 503 });
     }
-    const { data: userData } = await sb.auth.getUser(token);
-    if (!userData.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
-    const rateKey = `chat:${userData.user.id}:${campaign.id}`;
-    if (await isRateLimited(rateKey)) {
-      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    let actorUserId: string | null = null;
+    if (!isInternalSim) {
+      const { data: userData } = await sb.auth.getUser(token);
+      if (!userData.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      actorUserId = userData.user.id;
+
+      const rateKey = `chat:${actorUserId}:${campaign.id}`;
+      if (await isRateLimited(rateKey)) {
+        return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+      }
     }
 
     const { data: campaignRow } = await sb
@@ -227,18 +446,37 @@ export async function POST(req: Request) {
       .eq('id', campaign.id)
       .maybeSingle();
 
-    const { data: membership } = await sb
-      .from('campaign_players')
-      .select('status,is_dead,character_data_json')
-      .eq('campaign_id', campaign.id)
-      .eq('player_id', userData.user.id)
-      .maybeSingle();
+    if (!actorUserId && isInternalSim) {
+      actorUserId = campaignRow?.owner_id || campaign.ownerId || null;
+    }
 
-    if (!membership && campaignRow?.owner_id !== userData.user.id) {
+    let membership: any = null;
+    if (actorUserId) {
+      const membershipQuery = await sb
+        .from('campaign_players')
+        .select('status,is_dead,character_data_json')
+        .eq('campaign_id', campaign.id)
+        .eq('player_id', actorUserId)
+        .maybeSingle();
+      membership = membershipQuery.data;
+    }
+
+    if (isInternalSim && !membership) {
+      const fallbackMembership = await sb
+        .from('campaign_players')
+        .select('status,is_dead,character_data_json')
+        .eq('campaign_id', campaign.id)
+        .eq('status', 'accepted')
+        .limit(1)
+        .maybeSingle();
+      membership = fallbackMembership.data;
+    }
+
+    if (!isInternalSim && !membership && campaignRow?.owner_id !== actorUserId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    if (membership?.is_dead) {
+    if (!isInternalSim && membership?.is_dead) {
       return NextResponse.json({ error: 'Character is dead' }, { status: 403 });
     }
 
@@ -290,6 +528,12 @@ export async function POST(req: Request) {
           : ''
       );
 
+    const systemWithSimMode = isSimMode
+      ? system.concat(
+          '\n\nSTRICT NARRATIVE MODE: No dice rolls, no images. Resolve all actions via text description based on character stats.'
+        )
+      : system;
+
     const toChatMessage = (role: 'user' | 'assistant', content: string): ChatCompletionMessageParam => ({
       role,
       content,
@@ -298,6 +542,18 @@ export async function POST(req: Request) {
     const history: ChatCompletionMessageParam[] = messages
       .filter((m) => m.role !== Role.SYSTEM)
       .map((m) => toChatMessage(m.role === Role.USER ? 'user' : 'assistant', m.content || ''));
+
+    const contextCharLimit = parsePositiveInt(
+      process.env.CONTEXT_CHAR_LIMIT,
+      DEFAULT_CONTEXT_CHAR_LIMIT
+    );
+    const { trimmedHistory, messagesTruncated } = applyStrictSlidingWindow({
+      systemPrompt: systemWithSimMode,
+      history,
+      input,
+      toolResponse,
+      contextCharLimit,
+    });
 
     const tools: ChatCompletionTool[] = [
       {
@@ -366,15 +622,26 @@ export async function POST(req: Request) {
       },
     ];
 
+    const { isRollResolution: isResolvingRoll, rollOutcome, rollLabel } = getRollOutcomeContext(toolResponse);
+    const toolsForRequest = isResolvingRoll
+      ? tools.filter((tool) => tool.function.name !== 'request_roll')
+      : tools;
+
     const baseMessages: ChatCompletionMessageParam[] = [
-      { role: 'system', content: system },
-      ...history,
+      { role: 'system', content: systemWithSimMode },
+      ...trimmedHistory,
     ];
 
     const buildMessages = (): ChatCompletionMessageParam[] => {
       if (toolResponse) {
         const toolCallId = toolResponse.callId || `call_${toolResponse.name}`;
         const toolArgs = toolResponse.args || {};
+        const rollResult = isResolvingRoll && typeof toolResponse.result === 'object' && toolResponse.result
+          ? (toolResponse.result as Record<string, any>)
+          : null;
+        const rollTotal = rollResult && Number.isFinite(Number(rollResult.total))
+          ? Number(rollResult.total)
+          : null;
         return [
           ...baseMessages,
           {
@@ -396,6 +663,24 @@ export async function POST(req: Request) {
             tool_call_id: toolCallId,
             content: JSON.stringify(toolResponse.result ?? ''),
           } as ChatCompletionMessageParam,
+          ...(isResolvingRoll
+            ? [{
+                role: 'user',
+                content:
+                  [
+                    '[SISTEMA] Resultado da rolagem recebido.',
+                    rollLabel ? `Classificacao oficial: ${rollLabel}.` : '',
+                    rollOutcome ? `Codigo do resultado: ${rollOutcome}.` : '',
+                    Number.isFinite(rollTotal ?? NaN) ? `Total da rolagem: ${rollTotal}.` : '',
+                    'Narre agora a consequencia imediata da acao de forma estritamente coerente com essa classificacao.',
+                    'Se for falha (leve/grave/critica), descreva complicacao, custo, perda de vantagem ou novo problema.',
+                    'Se for sucesso com custo, descreva ganho parcial com trade-off claro.',
+                    'Se for sucesso total/critico, descreva ganho claro sem contradizer risco anterior.',
+                    'Nao solicite nova rolagem nesta resposta.',
+                    'Finalize chamando o jogador para a proxima decisao.',
+                  ].filter(Boolean).join(' '),
+              } as ChatCompletionMessageParam]
+            : []),
         ];
       }
 
@@ -414,19 +699,20 @@ export async function POST(req: Request) {
       let streamResult: any;
       try {
         streamResult = await withModelFallback(
-          (model) =>
-            ai.chat.completions.create({
-              model,
+          (model) => {
+            const finalModel = resolveModelTier(model, isSimMode);
+            return ai.chat.completions.create({
+              model: finalModel,
               messages: buildMessages(),
-              tools,
-              tool_choice: 'auto',
+              ...(isSimMode ? {} : { tools: toolsForRequest, tool_choice: 'auto' as const }),
               temperature: 0.8,
               stream: true,
-            }),
+            });
+          },
           { key: `chat:${campaign.id}` }
         );
       } catch (err: any) {
-        const status = err?.status || err?.code || 500;
+        const status = err?.status || err?.response?.status || err?.code || 500;
         if (status === 429) {
           const retryAfter = extractRetryAfterSeconds(err);
           return NextResponse.json(
@@ -501,29 +787,84 @@ export async function POST(req: Request) {
       });
     }
 
+    const generationStartedAt = Date.now();
     const response = await withModelFallback(
-      (model) =>
-        ai.chat.completions.create({
-          model,
+      (model) => {
+        const finalModel = resolveModelTier(model, isSimMode);
+        return ai.chat.completions.create({
+          model: finalModel,
           messages: buildMessages(),
-          tools,
-          tool_choice: 'auto',
+          ...(isSimMode ? {} : { tools: toolsForRequest, tool_choice: 'auto' as const }),
           temperature: 0.8,
-        }),
+        });
+      },
       { key: `chat:${campaign.id}` }
     );
+    const generationLatencyMs = Date.now() - generationStartedAt;
 
     const message = response.choices?.[0]?.message;
-    const text = message?.content || '';
+    let text = message?.content || '';
     const toolCalls = normalizeToolCalls(message?.tool_calls);
     const hasRollToolCall = toolCalls.some((call) => call.name === 'request_roll');
+
+    if (isResolvingRoll && !hasRollToolCall && text.trim() && shouldRewriteRollNarrative({ rollOutcome, text })) {
+      const rewritePrompt = [
+        '[SISTEMA] REESCRITA OBRIGATORIA DE COERENCIA MECANICA.',
+        rollLabel ? `Classificacao oficial da rolagem: ${rollLabel}.` : '',
+        rollOutcome ? `Codigo do resultado: ${rollOutcome}.` : '',
+        'Reescreva a narrativa para ficar estritamente coerente com o resultado acima.',
+        'Nao mude o contexto da cena; ajuste apenas o desfecho da acao para refletir o grau correto de falha/sucesso.',
+        'Mantenha tom e estilo, com consequencia clara e sem pedir nova rolagem.',
+        'Retorne apenas a narrativa final.',
+      ].filter(Boolean).join(' ');
+
+      const rewriteMessages: ChatCompletionMessageParam[] = [
+        ...baseMessages,
+        { role: 'assistant', content: text },
+        { role: 'user', content: rewritePrompt },
+      ];
+
+      const rewriteResponse = await withModelFallback(
+        (model) => {
+          const finalModel = resolveModelTier(model, isSimMode);
+          return ai.chat.completions.create({
+            model: finalModel,
+            messages: rewriteMessages,
+            temperature: 0.2,
+          });
+        },
+        { key: `chat:${campaign.id}:rewrite` }
+      );
+
+      const rewrittenText = rewriteResponse.choices?.[0]?.message?.content || '';
+      if (rewrittenText.trim()) {
+        text = rewrittenText;
+      }
+    }
+
+    const usage = (response as any)?.usage || {};
+    const promptTokens = Number.isFinite(usage.prompt_tokens)
+      ? Number(usage.prompt_tokens)
+      : Math.ceil(estimateMessagesChars(buildMessages()) / 4);
+    const completionTokens = Number.isFinite(usage.completion_tokens)
+      ? Number(usage.completion_tokens)
+      : Math.ceil((text || '').length / 4);
+
+    await writeBaselineTelemetry({
+      campaign_id: campaign.id,
+      turn_number: inferTurnNumber(messages, input),
+      prompt_tokens: Math.max(0, promptTokens),
+      completion_tokens: Math.max(0, completionTokens),
+      generation_latency_ms: Math.max(0, generationLatencyMs),
+      messages_truncated: messagesTruncated,
+    });
 
     return NextResponse.json({
       text: hasRollToolCall ? '' : text || '',
       toolCalls,
     });
   } catch (error: any) {
-    const status = error?.status || error?.code || 500;
+    const status = error?.status || error?.response?.status || error?.code || 500;
     console.error('Chat API error:', error);
     if (status === 429) {
       const retryAfter = extractRetryAfterSeconds(error);

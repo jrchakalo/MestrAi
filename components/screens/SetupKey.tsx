@@ -7,12 +7,14 @@ interface SetupKeyProps {
   showToast: (msg: string, type: 'success' | 'error') => void;
 }
 
+const OPENROUTER_KEY_REGEX = /^sk-or-v1-[a-zA-Z0-9_-]+$/;
+
 export const SetupKey: React.FC<SetupKeyProps> = ({ onComplete, showToast }) => {
   const [key, setKey] = useState('');
   const [validating, setValidating] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem('user_groq_key');
+    const stored = localStorage.getItem('user_openrouter_key');
     if (stored) setKey(stored);
   }, []);
 
@@ -21,6 +23,10 @@ export const SetupKey: React.FC<SetupKeyProps> = ({ onComplete, showToast }) => 
     if (!trimmedKey) {
         showToast("Por favor, insira uma chave.", 'error');
         return;
+    }
+    if (!OPENROUTER_KEY_REGEX.test(trimmedKey)) {
+      showToast("Formato inválido. Use uma chave OpenRouter começando com sk-or-v1-.", 'error');
+      return;
     }
     
     setValidating(true);
@@ -43,11 +49,11 @@ export const SetupKey: React.FC<SetupKeyProps> = ({ onComplete, showToast }) => 
     setValidating(false);
 
     if (isValid) {
-        localStorage.setItem('user_groq_key', trimmedKey);
+        localStorage.setItem('user_openrouter_key', trimmedKey);
         showToast("Chave validada com sucesso!", 'success');
         onComplete(trimmedKey);
     } else {
-      showToast(errorMessage || "Chave inválida ou erro de conexão. Verifique no console da Groq.", 'error');
+      showToast(errorMessage || "Chave inválida ou erro de conexão. Verifique no console do OpenRouter.", 'error');
     }
   };
 
@@ -57,28 +63,29 @@ export const SetupKey: React.FC<SetupKeyProps> = ({ onComplete, showToast }) => 
         <div>
           <h2 className="text-3xl font-bold text-white text-center">Configurar Chave</h2>
           <p className="mt-2 text-center text-slate-400">
-            A MestraAI utiliza a tecnologia Groq. Para continuar, você precisa da sua própria chave de API.
+            A MestraAI utiliza OpenRouter e pode ser jogada no tier FREE. Para continuar, você precisa da sua própria chave de API.
           </p>
         </div>
 
         <div className="bg-yellow-900/20 border border-yellow-700/50 p-4 rounded text-sm text-yellow-200">
           <p className="font-bold mb-1">⚠️ Aviso Importante</p>
           <p>Nós NÃO armazenamos sua chave em nossos servidores. Ela é salva <strong>localmente no seu navegador</strong>. Se você limpar o cache ou trocar de dispositivo/navegador, será necessário inseri-la novamente.</p>
-          <p className="mt-2">A Groq mostra a chave apenas uma vez. Copie e guarde antes de fechar a tela.</p>
+          <p className="mt-2">O OpenRouter mostra a chave apenas uma vez. Copie e guarde antes de fechar a tela.</p>
         </div>
 
         <div className="space-y-4">
           <div className="bg-slate-800 p-4 rounded text-sm text-slate-300">
             <ol className="list-decimal list-inside space-y-2">
-              <li>Acesse <a href="https://console.groq.com/keys" target="_blank" className="text-purple-400 underline">Groq Console</a>.</li>
-              <li>Clique em "Create API Key" para gerar uma chave.</li>
-              <li>Copie a chave gerada (ela aparece apenas uma vez) e cole abaixo.</li>
+              <li>Crie uma conta em <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" className="text-purple-400 underline">OpenRouter.ai</a>.</li>
+              <li>Entre na seção "Keys" e gere uma nova chave.</li>
+              <li>Você pode jogar de graça com modelos FREE (adicione créditos apenas se quiser modelos pagos).</li>
+              <li>Cole a chave abaixo para validar e continuar.</li>
             </ol>
           </div>
 
           <Input 
             label="Sua API Key" 
-            placeholder="gsk_..." 
+            placeholder="sk-or-v1-..." 
             value={key} 
             onChange={(e) => setKey(e.target.value)}
             type="password"

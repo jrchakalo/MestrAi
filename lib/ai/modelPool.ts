@@ -1,56 +1,68 @@
-export const MODELS = [
-  // TENTATIVA 1: O Melhor (Llama 3.3 70B)
-  'llama-3.3-70b-versatile',
+export const MASTER_MODELS = [
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'openai/gpt-oss-120b:free',
+  'qwen/qwen3-next-80b-a3b-instruct:free',
+  'openrouter/free',
+] as const;
 
-  // TENTATIVA 2: O Lógico (Qwen 2.5 72B) - Caso o Llama esteja com fila
-  'qwen-2.5-72b-instruct',
+export const FAST_MODELS = [
+  'meta-llama/llama-3.1-8b-instruct:free',
+  'google/gemma-2-9b-it:free',
+  'openrouter/free',
+] as const;
 
-  // TENTATIVA 3: O "Tanque de Guerra" (Llama 3.1 8B) - Caso você estoure o limite diário
-  'llama-3.1-8b-instant',
-];
+export const MODELS = MASTER_MODELS;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const modelIndexByKey = new Map<string, number>();
 
-function clampIndex(index: number) {
+function clampIndex(index: number, maxLength: number) {
   if (index < 0) return 0;
-  if (index >= MODELS.length) return MODELS.length - 1;
+  if (index >= maxLength) return maxLength - 1;
   return index;
+}
+
+function buildStateKey(key: string, models: readonly string[]) {
+  return `${key}::${models.join('|')}`;
+}
+
+function isRetryableModelError(error: unknown) {
+  const status = (error as any)?.status || (error as any)?.response?.status || (error as any)?.code;
+  return [429, 503, 502, 404].includes(Number(status));
 }
 
 export async function withModelFallback<T>(
   handler: (model: string) => Promise<T>,
-  options?: { minDelayMs?: number; key?: string }
+  options?: { minDelayMs?: number; key?: string; models?: readonly string[] }
 ): Promise<T> {
   let lastError: unknown;
-  const wait = Math.max(0, options?.minDelayMs ?? 0);
-  const startIndex = options?.key
-    ? clampIndex(modelIndexByKey.get(options.key) ?? 0)
-    : 0;
+  const models = options?.models?.length ? options.models : MODELS;
+  const wait = Math.max(0, options?.minDelayMs ?? 500);
+  const stateKey = options?.key ? buildStateKey(options.key, models) : '';
+  const startIndex = stateKey ? clampIndex(modelIndexByKey.get(stateKey) ?? 0, models.length) : 0;
 
-  for (let i = startIndex; i < MODELS.length; i += 1) {
-    const model = MODELS[i];
+  for (let i = startIndex; i < models.length; i += 1) {
+    const model = models[i];
     try {
       if (wait > 0 && i > startIndex) {
-        await delay(wait * (i - startIndex));
+        await delay(wait);
       }
       const result = await handler(model);
-      if (options?.key) {
-        modelIndexByKey.set(options.key, i);
+      if (stateKey) {
+        modelIndexByKey.set(stateKey, i);
       }
       return result;
     } catch (error) {
-      const status = (error as any)?.status || (error as any)?.code;
-      if (status === 429) {
-        throw error;
-      }
       lastError = error;
+      if (i < models.length - 1 && isRetryableModelError(error)) {
+        continue;
+      }
     }
   }
 
-  if (options?.key) {
-    modelIndexByKey.set(options.key, 0);
+  if (stateKey) {
+    modelIndexByKey.set(stateKey, 0);
   }
 
   throw lastError ?? new Error('All models failed');

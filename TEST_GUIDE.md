@@ -201,7 +201,7 @@ Testa endpoint `/api/chat`:
 **Arquivo**: `__tests__/api/validate-key.test.ts`
 
 Testa endpoint `/api/validate-key`:
-- Validação de chaves Groq
+- Validação de chaves OpenRouter
 - Tratamento de chaves inválidas
 - Rate limiting
 

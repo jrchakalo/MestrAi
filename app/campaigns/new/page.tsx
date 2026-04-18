@@ -13,7 +13,7 @@ export default function NewCampaignPage() {
 
   useEffect(() => {
     const init = async () => {
-      const key = localStorage.getItem('user_groq_key') || '';
+      const key = localStorage.getItem('user_openrouter_key') || '';
       setApiKey(key);
 
       const { data: sessionData } = await supabase.auth.getSession();
@@ -28,7 +28,7 @@ export default function NewCampaignPage() {
 
   const handleSave = async (camp: Campaign) => {
     if (!userId) return;
-    const storedKey = localStorage.getItem('user_groq_key') || '';
+    const storedKey = localStorage.getItem('user_openrouter_key') || '';
     const effectiveKey = (apiKey || storedKey).trim();
     if (!effectiveKey) {
       alert('Chave da IA ausente. Insira uma chave válida para concluir a criação.');

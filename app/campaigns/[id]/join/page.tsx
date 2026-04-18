@@ -36,7 +36,7 @@ export default function JoinCampaignPage() {
   useEffect(() => {
     const init = async () => {
       if (!campaignId) return;
-      const key = localStorage.getItem('user_groq_key') || '';
+      const key = localStorage.getItem('user_openrouter_key') || '';
       setApiKey(key);
 
       const { data: sessionData } = await supabase.auth.getSession();
@@ -283,7 +283,7 @@ export default function JoinCampaignPage() {
 
   const handleJoin = async () => {
     if (!campaign || !name.trim() || !appearance.trim() || !backstory.trim()) return;
-    const storedKey = localStorage.getItem('user_groq_key') || '';
+    const storedKey = localStorage.getItem('user_openrouter_key') || '';
     const effectiveKey = (apiKey || storedKey).trim();
     if (!effectiveKey) {
       alert('Chave da IA ausente. Insira uma chave válida para concluir a criação.');

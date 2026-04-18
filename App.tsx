@@ -37,7 +37,7 @@ export default function App() {
 
   // Load Initial State
   useEffect(() => {
-    const key = localStorage.getItem('user_groq_key');
+    const key = localStorage.getItem('user_openrouter_key');
     if (key) setApiKey(key);
 
     const savedCampaigns = localStorage.getItem('my_campaigns');
